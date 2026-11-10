@@ -26,6 +26,8 @@ data class CollectionRequestEntity(
     val proposedDate: Long? = null,
     val createdAt: Long,
     val updatedAt: Long,
+    /** When the upload to Supabase succeeded (local only; used for the R2 sync-delay metric). */
+    val sentAt: Long? = null,
 )
 
 /** Not stored; computed from [CollectionRequestEntity.wasteItems]. */

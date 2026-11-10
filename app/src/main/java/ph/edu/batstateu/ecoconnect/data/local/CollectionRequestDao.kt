@@ -29,14 +29,21 @@ interface CollectionRequestDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(request: CollectionRequestEntity): Long
 
-    /** Marks an uploaded request as SENT, unless something already moved it past PENDING_SUBMISSION. */
+    /** Oldest request still waiting to be uploaded, or null when nothing is pending. */
+    @Query("SELECT * FROM collection_requests WHERE userId = :userId AND syncStatus = 'PENDING_SUBMISSION' ORDER BY createdAt LIMIT 1")
+    suspend fun getOldestPending(userId: String): CollectionRequestEntity?
+
+    /**
+     * Marks an uploaded request as SENT and records [sentAt], unless something already
+     * moved it past PENDING_SUBMISSION.
+     */
     @Query(
         """
-        UPDATE collection_requests SET syncStatus = 'SENT', updatedAt = :updatedAt
+        UPDATE collection_requests SET syncStatus = 'SENT', sentAt = :sentAt, updatedAt = :sentAt
         WHERE id = :id AND syncStatus = 'PENDING_SUBMISSION'
         """,
     )
-    suspend fun markSent(id: String, updatedAt: Long = System.currentTimeMillis())
+    suspend fun markSent(id: String, sentAt: Long)
 
     /** Gives requests made before sign-in existed (user "demo-user") to the signed-in user. */
     @Query("UPDATE collection_requests SET userId = :userId WHERE userId = '$LEGACY_DEMO_USER_ID'")

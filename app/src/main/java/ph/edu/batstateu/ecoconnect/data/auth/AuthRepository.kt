@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.withTimeoutOrNull
@@ -73,6 +74,15 @@ class AuthRepository(
         .stateIn(scope, SharingStarted.Eagerly, AuthState.Loading)
 
     fun currentUserId(): String? = (authState.value as? AuthState.SignedIn)?.userId
+
+    /**
+     * Waits (up to [timeoutMs]) for the saved session to load from storage.
+     * Returns the signed-in user id, or null if nobody is signed in.
+     */
+    suspend fun awaitSignedInUserId(timeoutMs: Long = SESSION_LOAD_TIMEOUT_MS): String? {
+        val state = withTimeoutOrNull(timeoutMs) { authState.first { it !is AuthState.Loading } }
+        return (state as? AuthState.SignedIn)?.userId
+    }
 
     suspend fun signIn(email: String, password: String): Result<Unit> = runAuth {
         auth.signInWith(Email) {
@@ -165,6 +175,7 @@ class AuthRepository(
     companion object {
         private const val TAG = "AuthRepository"
         private const val ROLE_TIMEOUT_MS = 10_000L
+        private const val SESSION_LOAD_TIMEOUT_MS = 10_000L
         private const val KEY_LAST_USER = "last_user_id"
         private const val KEY_EMAIL = "last_email"
         private const val KEY_ROLE_PREFIX = "role_"

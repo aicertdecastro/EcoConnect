@@ -26,6 +26,7 @@ import ph.edu.batstateu.ecoconnect.ui.home.HomeTile
 import ph.edu.batstateu.ecoconnect.ui.pickup.RequestPickupRoute
 import ph.edu.batstateu.ecoconnect.ui.profile.ProfileScreen
 import ph.edu.batstateu.ecoconnect.ui.requests.MyRequestsRoute
+import ph.edu.batstateu.ecoconnect.ui.requests.RequestDetailsRoute
 
 /** Signed-in resident app: bottom bar on top-level routes + the navigation graph. */
 @Composable
@@ -130,7 +131,18 @@ fun EcoNavHost(
             )
         }
 
-        composable(EcoDestinations.MY_REQUESTS) { MyRequestsRoute() }
+        composable(EcoDestinations.MY_REQUESTS) {
+            MyRequestsRoute(onRequestClick = { navController.navigate(EcoDestinations.requestDetails(it)) })
+        }
+        composable(
+            route = EcoDestinations.REQUEST_DETAILS_PATTERN,
+            arguments = listOf(navArgument(EcoDestinations.ARG_REQUEST_ID) { type = NavType.StringType }),
+        ) { entry ->
+            RequestDetailsRoute(
+                requestId = entry.arguments?.getString(EcoDestinations.ARG_REQUEST_ID).orEmpty(),
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(EcoDestinations.PROFILE) { ProfileScreen(user = user, onSignOut = onSignOut) }
         composable(EcoDestinations.BLUETOOTH_CONFIRM) {
             PlaceholderScreen(title = "Bluetooth Confirm", onBack = { navController.popBackStack() })

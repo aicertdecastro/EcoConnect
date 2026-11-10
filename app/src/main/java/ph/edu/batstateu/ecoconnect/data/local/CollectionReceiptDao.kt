@@ -15,6 +15,9 @@ interface CollectionReceiptDao {
     @Query("SELECT * FROM collection_receipts WHERE uploaded = 0 ORDER BY confirmedAt")
     suspend fun getNotUploaded(): List<CollectionReceiptEntity>
 
+    @Query("SELECT * FROM collection_receipts WHERE uploaded = 0 ORDER BY confirmedAt LIMIT 1")
+    suspend fun getOldestNotUploaded(): CollectionReceiptEntity?
+
     @Query("UPDATE collection_receipts SET uploaded = 1 WHERE receiptId = :receiptId")
     suspend fun markUploaded(receiptId: String)
 }

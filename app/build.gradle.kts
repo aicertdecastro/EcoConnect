@@ -55,6 +55,11 @@ android {
         // supabase-kt / Ktor use java.time, which only exists natively from API 26.
         isCoreLibraryDesugaringEnabled = true
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -90,8 +95,14 @@ dependencies {
     implementation(libs.supabase.auth)
     implementation(libs.ktor.client.android)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.lifecycle.process)
 
     testImplementation(libs.junit)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }

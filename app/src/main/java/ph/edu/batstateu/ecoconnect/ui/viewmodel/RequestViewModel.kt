@@ -25,7 +25,8 @@ import ph.edu.batstateu.ecoconnect.data.guide.WasteGuideRepository
 import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
 import ph.edu.batstateu.ecoconnect.data.local.WasteItem
 import ph.edu.batstateu.ecoconnect.data.repository.RequestRepository
-import ph.edu.batstateu.ecoconnect.data.repository.SyncResult
+import ph.edu.batstateu.ecoconnect.sync.SyncScheduler
+import ph.edu.batstateu.ecoconnect.sync.SyncStatusStore
 import ph.edu.batstateu.ecoconnect.ui.pickup.RequestPickupUiState
 import ph.edu.batstateu.ecoconnect.ui.pickup.isPickupDateAllowed
 import java.util.Locale
@@ -35,6 +36,8 @@ class RequestViewModel(
     private val repository: RequestRepository,
     private val guideRepository: WasteGuideRepository,
     private val authRepository: AuthRepository,
+    private val syncScheduler: SyncScheduler,
+    syncStatusStore: SyncStatusStore,
 ) : ViewModel() {
 
     /** Signed-in user's id; null while signed out. */
@@ -55,8 +58,13 @@ class RequestViewModel(
     /** Collection rules from the bundled waste guide; null until loaded. */
     val guide: StateFlow<WasteGuide?> = _guide.asStateFlow()
 
-    private val _syncing = MutableStateFlow(false)
-    val syncing: StateFlow<Boolean> = _syncing.asStateFlow()
+    /** True while WorkManager is running a sync. */
+    val isSyncing: StateFlow<Boolean> = syncScheduler.observeSyncing()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** When the last fully successful sync finished; null if never. */
+    val lastSyncedAt: StateFlow<Long?> = syncStatusStore.observeLastSynced()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), syncStatusStore.lastSyncedAt())
 
     /** Guards against a double tap on Submit saving two requests. */
     private var submitting = false
@@ -104,25 +112,22 @@ class RequestViewModel(
         }
     }
 
-    /** Temporary manual sync: push pending requests, then pull server status. */
-    fun syncNow(onResult: (SyncResult) -> Unit) {
-        if (_syncing.value) return
-        val userId = authRepository.currentUserId() ?: return
-        _syncing.value = true
-        viewModelScope.launch {
-            try {
-                onResult(repository.syncNow(userId))
-            } finally {
-                _syncing.value = false
-            }
-        }
-    }
+    /** Manual retry from the "waiting for internet" banner. Runs as soon as there is a network. */
+    fun retryNow() = syncScheduler.enqueueSync()
+
+    fun request(id: String): Flow<CollectionRequestEntity?> = repository.observeRequest(id)
 
     companion object {
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as EcoConnectApp
-                RequestViewModel(app.requestRepository, app.wasteGuideRepository, app.authRepository)
+                RequestViewModel(
+                    repository = app.requestRepository,
+                    guideRepository = app.wasteGuideRepository,
+                    authRepository = app.authRepository,
+                    syncScheduler = app.syncScheduler,
+                    syncStatusStore = app.syncStatusStore,
+                )
             }
         }
     }

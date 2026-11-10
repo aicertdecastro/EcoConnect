@@ -21,6 +21,11 @@ object EcoDestinations {
     const val GUIDE_RESULT_PATTERN = "guide_result/{$ARG_CATEGORY_ID}"
     fun guideResult(categoryId: String): String = "guide_result/$categoryId"
 
+    // Request details
+    const val ARG_REQUEST_ID = "requestId"
+    const val REQUEST_DETAILS_PATTERN = "request_details/{$ARG_REQUEST_ID}"
+    fun requestDetails(requestId: String): String = "request_details/$requestId"
+
     /** Routes that show the bottom navigation bar. */
     val topLevel = setOf(HOME, WASTE_GUIDE, MY_REQUESTS, PROFILE)
 }

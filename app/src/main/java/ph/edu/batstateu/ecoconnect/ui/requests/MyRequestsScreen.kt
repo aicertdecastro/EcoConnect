@@ -13,23 +13,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -38,28 +37,25 @@ import androidx.compose.ui.unit.dp
 import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
 import ph.edu.batstateu.ecoconnect.data.local.totalKg
 import ph.edu.batstateu.ecoconnect.ui.components.SyncStatusChip
-import ph.edu.batstateu.ecoconnect.ui.components.WasteCategory
 import ph.edu.batstateu.ecoconnect.ui.preview.FakeData
 import ph.edu.batstateu.ecoconnect.ui.theme.EcoConnectTheme
-import ph.edu.batstateu.ecoconnect.ui.theme.PillShape
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
+import ph.edu.batstateu.ecoconnect.ui.theme.StatusPending
+import ph.edu.batstateu.ecoconnect.ui.theme.StatusPendingContainer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyRequestsScreen(
     requests: List<CollectionRequestEntity>,
     pendingCount: Int,
-    syncing: Boolean,
-    onSyncNow: () -> Unit,
+    isSyncing: Boolean,
+    lastSyncedAt: Long?,
+    onRetryNow: () -> Unit,
+    onRequestClick: (requestId: String) -> Unit,
     modifier: Modifier = Modifier,
-    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("My Requests") },
@@ -75,54 +71,91 @@ fun MyRequestsScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            SyncBar(pendingCount = pendingCount, syncing = syncing, onSyncNow = onSyncNow)
+            SyncStatusLine(isSyncing = isSyncing, lastSyncedAt = lastSyncedAt)
+            if (pendingCount > 0) {
+                PendingBanner(pendingCount = pendingCount, isSyncing = isSyncing, onRetryNow = onRetryNow)
+            }
             if (requests.isEmpty()) {
                 EmptyState()
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(requests, key = { it.id }) { RequestCard(it) }
+                    items(requests, key = { it.id }) { RequestCard(it, onClick = { onRequestClick(it.id) }) }
                 }
             }
         }
     }
 }
 
-/** Temporary manual sync (automatic background sync comes later). */
+/** "Last synced: 7:12 PM" plus a small "Syncing…" indicator while WorkManager is running. */
 @Composable
-private fun SyncBar(pendingCount: Int, syncing: Boolean, onSyncNow: () -> Unit) {
+private fun SyncStatusLine(isSyncing: Boolean, lastSyncedAt: Long?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            when (pendingCount) {
-                0 -> "Everything is sent"
-                1 -> "1 request waiting to send"
-                else -> "$pendingCount requests waiting to send"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
+        Icon(
+            Icons.Outlined.CloudDone,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
         )
-        FilledTonalButton(onClick = onSyncNow, enabled = !syncing, shape = PillShape) {
-            if (syncing) {
-                CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-            } else {
-                Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
-            }
-            Text(if (syncing) "Syncing…" else "Sync now", modifier = Modifier.padding(start = 8.dp))
+        Text(
+            if (lastSyncedAt == null) "Not synced yet" else "Last synced: ${formatLastSynced(lastSyncedAt)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .padding(start = 6.dp)
+                .weight(1f),
+        )
+        if (isSyncing) {
+            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
+            Text(
+                "Syncing…",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 6.dp),
+            )
+        }
+    }
+}
+
+/** Shown while anything is still on the phone only. "Retry now" is the manual retry from the risk plan. */
+@Composable
+private fun PendingBanner(pendingCount: Int, isSyncing: Boolean, onRetryNow: () -> Unit) {
+    Surface(
+        color = StatusPendingContainer,
+        contentColor = StatusPending,
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(
+                if (pendingCount == 1) "1 request waiting for internet" else "$pendingCount requests waiting for internet",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .padding(start = 10.dp)
+                    .weight(1f),
+            )
+            TextButton(onClick = onRetryNow, enabled = !isSyncing) { Text("Retry now") }
         }
     }
 }
 
 @Composable
-private fun RequestCard(request: CollectionRequestEntity) {
+private fun RequestCard(request: CollectionRequestEntity, onClick: () -> Unit) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -137,7 +170,7 @@ private fun RequestCard(request: CollectionRequestEntity) {
                     modifier = Modifier.size(20.dp),
                 )
                 Text(
-                    "${formatDate(request.pickupDate)} · ${request.pickupTime}",
+                    "${formatPickupDate(request.pickupDate)} · ${request.pickupTime}",
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier
                         .padding(start = 8.dp)
@@ -145,12 +178,7 @@ private fun RequestCard(request: CollectionRequestEntity) {
                 )
                 SyncStatusChip(request.syncStatus)
             }
-            Text(
-                request.wasteItems.joinToString { item ->
-                    "${WasteCategory.fromId(item.category)?.label ?: item.category} ${formatKg(item.kg)} kg"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text(request.wasteItems.joinToString { it.describe() }, style = MaterialTheme.typography.bodyMedium)
             Text(
                 "Total ${formatKg(request.totalKg)} kg · ${request.address}",
                 style = MaterialTheme.typography.bodySmall,
@@ -159,7 +187,7 @@ private fun RequestCard(request: CollectionRequestEntity) {
             )
             request.proposedDate?.let {
                 Text(
-                    "Collector proposed: ${formatDate(it)}",
+                    "Collector proposed: ${formatPickupDate(it)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -197,29 +225,38 @@ private fun EmptyState() {
     }
 }
 
-/** Pickup dates are UTC-midnight millis, so format in UTC. */
-private fun formatDate(utcMillis: Long): String =
-    SimpleDateFormat("EEE, MMM d, yyyy", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(utcMillis)
-
-private fun formatKg(kg: Double): String =
-    if (kg % 1.0 == 0.0) kg.toInt().toString() else String.format(Locale.US, "%.1f", kg)
-
 // ---------- Previews ----------
 
-@Preview(showSystemUi = true, name = "My Requests")
+private const val PREVIEW_LAST_SYNC = 1_795_168_320_000L
+
+@Preview(showSystemUi = true, name = "My Requests – waiting for internet")
 @Composable
-private fun MyRequestsPreview() {
-    EcoConnectTheme { MyRequestsScreen(requests = FakeData.requests, pendingCount = 1, syncing = false, onSyncNow = {}) }
+private fun MyRequestsPendingPreview() {
+    EcoConnectTheme {
+        MyRequestsScreen(FakeData.requests, pendingCount = 1, isSyncing = false, lastSyncedAt = PREVIEW_LAST_SYNC, onRetryNow = {}, onRequestClick = {})
+    }
 }
 
 @Preview(showSystemUi = true, name = "My Requests – syncing")
 @Composable
 private fun MyRequestsSyncingPreview() {
-    EcoConnectTheme { MyRequestsScreen(requests = FakeData.requests, pendingCount = 1, syncing = true, onSyncNow = {}) }
+    EcoConnectTheme {
+        MyRequestsScreen(FakeData.requests, pendingCount = 1, isSyncing = true, lastSyncedAt = PREVIEW_LAST_SYNC, onRetryNow = {}, onRequestClick = {})
+    }
+}
+
+@Preview(showSystemUi = true, name = "My Requests – all sent")
+@Composable
+private fun MyRequestsAllSentPreview() {
+    EcoConnectTheme {
+        MyRequestsScreen(FakeData.requests.drop(1), pendingCount = 0, isSyncing = false, lastSyncedAt = PREVIEW_LAST_SYNC, onRetryNow = {}, onRequestClick = {})
+    }
 }
 
 @Preview(showSystemUi = true, name = "My Requests – empty")
 @Composable
 private fun MyRequestsEmptyPreview() {
-    EcoConnectTheme { MyRequestsScreen(requests = emptyList(), pendingCount = 0, syncing = false, onSyncNow = {}) }
+    EcoConnectTheme {
+        MyRequestsScreen(emptyList(), pendingCount = 0, isSyncing = false, lastSyncedAt = null, onRetryNow = {}, onRequestClick = {})
+    }
 }

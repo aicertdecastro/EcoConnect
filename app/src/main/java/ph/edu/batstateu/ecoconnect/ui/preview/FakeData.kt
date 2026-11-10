@@ -1,5 +1,7 @@
 package ph.edu.batstateu.ecoconnect.ui.preview
 
+import ph.edu.batstateu.ecoconnect.data.auth.AuthState
+import ph.edu.batstateu.ecoconnect.data.auth.UserRole
 import ph.edu.batstateu.ecoconnect.data.guide.GuideCategory
 import ph.edu.batstateu.ecoconnect.data.guide.GuideItem
 import ph.edu.batstateu.ecoconnect.data.guide.GuideQuestion
@@ -8,7 +10,9 @@ import ph.edu.batstateu.ecoconnect.data.guide.SearchHit
 import ph.edu.batstateu.ecoconnect.data.guide.UnsureAdvice
 import ph.edu.batstateu.ecoconnect.data.guide.WasteGuide
 import ph.edu.batstateu.ecoconnect.data.guide.Weekday
+import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
 import ph.edu.batstateu.ecoconnect.data.local.SyncStatus
+import ph.edu.batstateu.ecoconnect.data.local.WasteItem
 import ph.edu.batstateu.ecoconnect.ui.components.WasteCategory
 import ph.edu.batstateu.ecoconnect.ui.home.HomeStats
 import ph.edu.batstateu.ecoconnect.ui.pickup.CategoryAmount
@@ -109,5 +113,45 @@ internal object FakeData {
     val searchHits = listOf(
         SearchHit(GuideItem("Sachets", "RESIDUAL", listOf("sachet", "shampoo sachet")), residual),
         SearchHit(GuideItem("Plastic containers (HDPE)", "RECYCLABLE", listOf("shampoo bottle"), tip = "Rinse and dry."), recyclable),
+    )
+
+    // ---- Accounts & requests ----
+
+    val signedInUser = AuthState.SignedIn(
+        userId = "00000000-0000-0000-0000-000000000001",
+        email = "juan@example.com",
+        fullName = "Juan Dela Cruz",
+        role = UserRole.USER,
+    )
+
+    val collectorUser = signedInUser.copy(
+        userId = "00000000-0000-0000-0000-000000000002",
+        email = "collector@example.com",
+        fullName = "Pedro Santos",
+        role = UserRole.COLLECTOR,
+    )
+
+    private const val DAY = 86_400_000L
+
+    private fun request(n: Int, status: SyncStatus, items: List<WasteItem>, response: String? = null, proposed: Long? = null) =
+        CollectionRequestEntity(
+            id = "sample-$n",
+            userId = signedInUser.userId,
+            wasteItems = items,
+            address = pickupState.address,
+            pickupDate = SAMPLE_DATE_MILLIS + n * 2 * DAY,
+            pickupTime = "07:30",
+            syncStatus = status,
+            collectorResponse = response,
+            proposedDate = proposed,
+            createdAt = SAMPLE_DATE_MILLIS - n * DAY,
+            updatedAt = SAMPLE_DATE_MILLIS - n * DAY,
+        )
+
+    val requests = listOf(
+        request(0, SyncStatus.PENDING_SUBMISSION, listOf(WasteItem("BIODEGRADABLE", 3.5))),
+        request(1, SyncStatus.SENT, listOf(WasteItem("RECYCLABLE", 2.0), WasteItem("RESIDUAL", 1.0))),
+        request(2, SyncStatus.RESCHEDULED, listOf(WasteItem("RECYCLABLE", 4.0)), "Truck is full on Tuesday.", SAMPLE_DATE_MILLIS + 6 * DAY),
+        request(3, SyncStatus.ACCEPTED, listOf(WasteItem("BIODEGRADABLE", 1.5)), "See you then!"),
     )
 }

@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import ph.edu.batstateu.ecoconnect.data.auth.AuthState
 import ph.edu.batstateu.ecoconnect.ui.components.EcoBottomBar
 import ph.edu.batstateu.ecoconnect.ui.components.PlaceholderScreen
 import ph.edu.batstateu.ecoconnect.ui.guide.GuideHomeRoute
@@ -23,10 +24,16 @@ import ph.edu.batstateu.ecoconnect.ui.guide.GuideResultRoute
 import ph.edu.batstateu.ecoconnect.ui.home.HomeRoute
 import ph.edu.batstateu.ecoconnect.ui.home.HomeTile
 import ph.edu.batstateu.ecoconnect.ui.pickup.RequestPickupRoute
+import ph.edu.batstateu.ecoconnect.ui.profile.ProfileScreen
+import ph.edu.batstateu.ecoconnect.ui.requests.MyRequestsRoute
 
-/** App root: bottom bar on top-level routes + the navigation graph. */
+/** Signed-in resident app: bottom bar on top-level routes + the navigation graph. */
 @Composable
-fun EcoConnectRoot(navController: NavHostController = rememberNavController()) {
+fun EcoConnectRoot(
+    user: AuthState.SignedIn,
+    onSignOut: () -> Unit,
+    navController: NavHostController = rememberNavController(),
+) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -43,12 +50,22 @@ fun EcoConnectRoot(navController: NavHostController = rememberNavController()) {
             }
         },
     ) { padding ->
-        EcoNavHost(navController = navController, modifier = Modifier.padding(padding))
+        EcoNavHost(
+            navController = navController,
+            user = user,
+            onSignOut = onSignOut,
+            modifier = Modifier.padding(padding),
+        )
     }
 }
 
 @Composable
-fun EcoNavHost(navController: NavHostController, modifier: Modifier = Modifier) {
+fun EcoNavHost(
+    navController: NavHostController,
+    user: AuthState.SignedIn,
+    onSignOut: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val openRequestPickup: (String?) -> Unit = { categoryId ->
         navController.navigate(EcoDestinations.requestPickup(categoryId))
     }
@@ -60,6 +77,7 @@ fun EcoNavHost(navController: NavHostController, modifier: Modifier = Modifier) 
     ) {
         composable(EcoDestinations.HOME) {
             HomeRoute(
+                userName = user.fullName?.trim()?.substringBefore(" ")?.takeIf { it.isNotEmpty() },
                 onTileClick = { tile ->
                     when (tile) {
                         HomeTile.RequestPickup -> openRequestPickup(null)
@@ -112,8 +130,8 @@ fun EcoNavHost(navController: NavHostController, modifier: Modifier = Modifier) 
             )
         }
 
-        composable(EcoDestinations.MY_REQUESTS) { PlaceholderScreen(title = "My Requests") }
-        composable(EcoDestinations.PROFILE) { PlaceholderScreen(title = "Profile") }
+        composable(EcoDestinations.MY_REQUESTS) { MyRequestsRoute() }
+        composable(EcoDestinations.PROFILE) { ProfileScreen(user = user, onSignOut = onSignOut) }
         composable(EcoDestinations.BLUETOOTH_CONFIRM) {
             PlaceholderScreen(title = "Bluetooth Confirm", onBack = { navController.popBackStack() })
         }

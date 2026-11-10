@@ -14,6 +14,7 @@ import ph.edu.batstateu.ecoconnect.ui.viewmodel.RequestViewModel
 @Composable
 fun HomeRoute(
     onTileClick: (HomeTile) -> Unit,
+    userName: String? = null,
     modifier: Modifier = Modifier,
     viewModel: RequestViewModel = viewModel(factory = RequestViewModel.Factory),
 ) {
@@ -28,5 +29,5 @@ fun HomeRoute(
         )
     }
 
-    HomeScreen(stats = stats, onTileClick = onTileClick, modifier = modifier)
+    HomeScreen(stats = stats, onTileClick = onTileClick, userName = userName, modifier = modifier)
 }

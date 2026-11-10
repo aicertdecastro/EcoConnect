@@ -40,7 +40,7 @@ enum class WasteCategory(
     val id: String get() = name
 
     companion object {
-        fun fromId(id: String): WasteCategory? = entries.firstOrNull { it.name == id }
+        fun fromId(id: String): WasteCategory? = entries.firstOrNull { it.name.equals(id, ignoreCase = true) }
     }
 }
 

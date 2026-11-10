@@ -23,13 +23,10 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Eco
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Recycling
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,34 +55,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import ph.edu.batstateu.ecoconnect.data.guide.CategoryIds
+import ph.edu.batstateu.ecoconnect.data.guide.GuideCategory
+import ph.edu.batstateu.ecoconnect.data.guide.PickupSchedule
+import ph.edu.batstateu.ecoconnect.data.guide.Weekday
 import ph.edu.batstateu.ecoconnect.data.local.SyncStatus
 import ph.edu.batstateu.ecoconnect.ui.components.SyncStatusChip
+import ph.edu.batstateu.ecoconnect.ui.components.WasteCategory
 import ph.edu.batstateu.ecoconnect.ui.components.label
 import ph.edu.batstateu.ecoconnect.ui.preview.FakeData
 import ph.edu.batstateu.ecoconnect.ui.theme.EcoConnectTheme
-import ph.edu.batstateu.ecoconnect.ui.theme.EcoGreen100
 import ph.edu.batstateu.ecoconnect.ui.theme.EcoGreen800
 import ph.edu.batstateu.ecoconnect.ui.theme.PillShape
-import ph.edu.batstateu.ecoconnect.ui.theme.TileAmber
-import ph.edu.batstateu.ecoconnect.ui.theme.TileBlue
-import ph.edu.batstateu.ecoconnect.ui.theme.TileTeal
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
 // ---------- UI model ----------
-
-enum class WasteCategory(val label: String, val icon: ImageVector, val accent: Color) {
-    Biodegradable("Biodegradable", Icons.Outlined.Eco, EcoGreen100),
-    Recyclable("Recyclable", Icons.Outlined.Recycling, TileBlue),
-    Residual("Residual", Icons.Outlined.Delete, TileTeal),
-    Special("Special / Hazardous", Icons.Outlined.Warning, TileAmber),
-}
 
 data class CategoryAmount(val category: WasteCategory, val kg: Double)
 
@@ -99,21 +91,45 @@ data class RequestPickupUiState(
     val status: SyncStatus = SyncStatus.PENDING_SUBMISSION,
 ) {
     val totalKg: Double get() = categories.sumOf { it.kg }
+
+    /** Category ids with kg > 0. */
+    val selectedIds: List<String> get() = categories.filter { it.kg > 0.0 }.map { it.category.id }
+
     val canSubmit: Boolean
         get() = address.isNotBlank() && dateMillis != null && hour != null && minute != null &&
             totalKg > 0.0 && status == SyncStatus.PENDING_SUBMISSION
+
+    companion object {
+        /** Starting form with [categoryId] pre-selected (one kg step), e.g. when coming from the guide. */
+        fun preselected(categoryId: String?): RequestPickupUiState {
+            val base = RequestPickupUiState()
+            val category = categoryId?.let(WasteCategory::fromId) ?: return base
+            return base.copy(
+                categories = base.categories.map { if (it.category == category) it.copy(kg = KG_STEP) else it },
+            )
+        }
+    }
 }
 
-private const val KG_STEP = 0.5
+internal const val KG_STEP = 0.5
 
-// ---------- Stateful entry point (used by navigation) ----------
+/** Guide rules for the categories the user selected. */
+private fun RequestPickupUiState.selectedRules(rules: List<GuideCategory>): List<GuideCategory> =
+    rules.filter { it.id in selectedIds }
+
+/** True if [utcMillis] is a collection day for at least one selected category. */
+internal fun isPickupDateAllowed(utcMillis: Long, selected: List<GuideCategory>): Boolean =
+    PickupSchedule.isDateAllowed(Weekday.fromUtcMillis(utcMillis), selected)
+
+// ---------- Stateful entry point ----------
 
 /**
- * Holds the form state locally. [onSubmit] receives the filled form; saving it
- * (Room → Supabase sync) will be wired in later.
+ * Holds the form state locally. [rules] come from the waste guide and decide which
+ * categories can be requested and which dates are allowed. [onSubmit] receives the filled form.
  */
 @Composable
 fun RequestPickupScreen(
+    rules: List<GuideCategory>,
     onBack: () -> Unit,
     onSubmit: (RequestPickupUiState) -> Unit,
     modifier: Modifier = Modifier,
@@ -122,14 +138,22 @@ fun RequestPickupScreen(
     var state by remember { mutableStateOf(initialState) }
     RequestPickupContent(
         state = state,
+        rules = rules,
         onBack = onBack,
         onAddressChange = { state = state.copy(address = it) },
         onDateChange = { state = state.copy(dateMillis = it) },
         onTimeChange = { h, m -> state = state.copy(hour = h, minute = m) },
         onCategoryKgChange = { category, kg ->
-            state = state.copy(
+            val updated = state.copy(
                 categories = state.categories.map { if (it.category == category) it.copy(kg = kg) else it },
             )
+            // Drop the date if it no longer matches any selected category's collection days.
+            val date = updated.dateMillis
+            state = if (date != null && !isPickupDateAllowed(date, updated.selectedRules(rules))) {
+                updated.copy(dateMillis = null)
+            } else {
+                updated
+            }
         },
         onSubmit = { onSubmit(state) },
         modifier = modifier,
@@ -142,6 +166,7 @@ fun RequestPickupScreen(
 @Composable
 fun RequestPickupContent(
     state: RequestPickupUiState,
+    rules: List<GuideCategory>,
     onBack: () -> Unit,
     onAddressChange: (String) -> Unit,
     onDateChange: (Long) -> Unit,
@@ -153,6 +178,7 @@ fun RequestPickupContent(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     val editable = state.status == SyncStatus.PENDING_SUBMISSION
+    val selected = state.selectedRules(rules)
 
     Scaffold(
         modifier = modifier,
@@ -219,6 +245,15 @@ fun RequestPickupContent(
                 ),
             )
 
+            SectionLabel("Waste category summary")
+            CategorySummaryCard(
+                categories = state.categories,
+                rules = rules,
+                totalKg = state.totalKg,
+                editable = editable,
+                onCategoryKgChange = onCategoryKgChange,
+            )
+
             SectionLabel("Pickup date & time")
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 PickerField(
@@ -226,7 +261,7 @@ fun RequestPickupContent(
                     isPlaceholder = state.dateMillis == null,
                     icon = Icons.Outlined.CalendarMonth,
                     contentDescription = "Pick date",
-                    enabled = editable,
+                    enabled = editable && selected.isNotEmpty(),
                     onClick = { showDatePicker = true },
                     modifier = Modifier.weight(1.4f),
                 )
@@ -240,14 +275,7 @@ fun RequestPickupContent(
                     modifier = Modifier.weight(1f),
                 )
             }
-
-            SectionLabel("Waste category summary")
-            CategorySummaryCard(
-                categories = state.categories,
-                totalKg = state.totalKg,
-                editable = editable,
-                onCategoryKgChange = onCategoryKgChange,
-            )
+            ScheduleInfo(dateMillis = state.dateMillis, selected = selected)
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -255,6 +283,7 @@ fun RequestPickupContent(
     if (showDatePicker) {
         PickupDatePickerDialog(
             initialMillis = state.dateMillis,
+            isDateAllowed = { isPickupDateAllowed(it, selected) },
             onConfirm = {
                 onDateChange(it)
                 showDatePicker = false
@@ -285,6 +314,46 @@ private fun SectionLabel(text: String) {
     )
 }
 
+/** Helper text under the date field: what the chosen day covers, plus schedule notes. */
+@Composable
+private fun ScheduleInfo(dateMillis: Long?, selected: List<GuideCategory>) {
+    val lines = buildList {
+        if (selected.isEmpty()) {
+            add("Pick waste types first; dates follow the collection schedule.")
+        } else if (dateMillis != null) {
+            val day = Weekday.fromUtcMillis(dateMillis)
+            val coverage = PickupSchedule.coverage(day, selected)
+            if (coverage.collected.isNotEmpty()) {
+                add("Collected on ${day.label}: ${coverage.collected.joinToString { it.name }}")
+            }
+            if (coverage.notCollected.isNotEmpty()) {
+                add("Not collected on ${day.label}: ${coverage.notCollected.joinToString { it.name }}")
+            }
+        } else {
+            selected.filter { it.collectionDays.isNotEmpty() }.forEach { c ->
+                add("${c.name}: ${c.collectionDays.joinToString { it.shortLabel }}")
+            }
+        }
+        selected.firstOrNull { it.id == CategoryIds.RESIDUAL }?.scheduleNote?.let { add(it) }
+    }
+    if (lines.isEmpty()) return
+    Row(Modifier.padding(top = 8.dp)) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(top = 2.dp, end = 8.dp)
+                .size(16.dp),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            lines.forEach {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
 /** Field-shaped button that opens a picker dialog. */
 @Composable
 private fun PickerField(
@@ -299,7 +368,9 @@ private fun PickerField(
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(56.dp),
+        modifier = modifier
+            .height(56.dp)
+            .alpha(if (enabled) 1f else 0.6f),
         shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
@@ -323,6 +394,7 @@ private fun PickerField(
 @Composable
 private fun CategorySummaryCard(
     categories: List<CategoryAmount>,
+    rules: List<GuideCategory>,
     totalKg: Double,
     editable: Boolean,
     onCategoryKgChange: (WasteCategory, Double) -> Unit,
@@ -334,9 +406,18 @@ private fun CategorySummaryCard(
     ) {
         Column(Modifier.padding(vertical = 8.dp)) {
             categories.forEach { item ->
+                val rule = rules.firstOrNull { it.id == item.category.id }
+                val requestable = rule?.requestable ?: true
+                val subtitle = when {
+                    !requestable -> "Not collected door-to-door — see Waste Guide"
+                    rule == null -> null
+                    rule.collectionDays.isEmpty() -> "No published day"
+                    else -> rule.collectionDays.joinToString { it.shortLabel }
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .alpha(if (requestable) 1f else 0.55f)
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -348,29 +429,38 @@ private fun CategorySummaryCard(
                     ) {
                         Icon(item.category.icon, contentDescription = null, tint = EcoGreen800, modifier = Modifier.size(20.dp))
                     }
-                    Text(
-                        item.category.label,
-                        style = MaterialTheme.typography.bodyMedium,
+                    Column(
                         modifier = Modifier
                             .weight(1f)
                             .padding(start = 12.dp),
-                    )
-                    IconButton(
-                        onClick = { onCategoryKgChange(item.category, (item.kg - KG_STEP).coerceAtLeast(0.0)) },
-                        enabled = editable && item.kg > 0.0,
-                        modifier = Modifier.size(32.dp),
-                    ) { Icon(Icons.Outlined.Remove, contentDescription = "Less ${item.category.label}") }
-                    Text(
-                        "${formatKg(item.kg)} kg",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.width(56.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    )
-                    IconButton(
-                        onClick = { onCategoryKgChange(item.category, item.kg + KG_STEP) },
-                        enabled = editable,
-                        modifier = Modifier.size(32.dp),
-                    ) { Icon(Icons.Outlined.Add, contentDescription = "More ${item.category.label}") }
+                    ) {
+                        Text(rule?.name ?: item.category.label, style = MaterialTheme.typography.bodyMedium)
+                        if (subtitle != null) {
+                            Text(
+                                subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (requestable) {
+                        IconButton(
+                            onClick = { onCategoryKgChange(item.category, (item.kg - KG_STEP).coerceAtLeast(0.0)) },
+                            enabled = editable && item.kg > 0.0,
+                            modifier = Modifier.size(32.dp),
+                        ) { Icon(Icons.Outlined.Remove, contentDescription = "Less ${item.category.label}") }
+                        Text(
+                            "${formatKg(item.kg)} kg",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.width(56.dp),
+                            textAlign = TextAlign.Center,
+                        )
+                        IconButton(
+                            onClick = { onCategoryKgChange(item.category, item.kg + KG_STEP) },
+                            enabled = editable,
+                            modifier = Modifier.size(32.dp),
+                        ) { Icon(Icons.Outlined.Add, contentDescription = "More ${item.category.label}") }
+                    }
                 }
             }
             HorizontalDivider(
@@ -462,6 +552,20 @@ private fun RequestPickupPendingPreview() {
     EcoConnectTheme {
         RequestPickupContent(
             state = FakeData.pickupState,
+            rules = FakeData.guideCategories,
+            onBack = {}, onAddressChange = {}, onDateChange = {}, onTimeChange = { _, _ -> },
+            onCategoryKgChange = { _, _ -> }, onSubmit = {},
+        )
+    }
+}
+
+@Preview(showSystemUi = true, name = "Request Pickup – From guide (nothing chosen)")
+@Composable
+private fun RequestPickupEmptyPreview() {
+    EcoConnectTheme {
+        RequestPickupContent(
+            state = RequestPickupUiState.preselected(null),
+            rules = FakeData.guideCategories,
             onBack = {}, onAddressChange = {}, onDateChange = {}, onTimeChange = { _, _ -> },
             onCategoryKgChange = { _, _ -> }, onSubmit = {},
         )
@@ -474,6 +578,7 @@ private fun RequestPickupAcceptedPreview() {
     EcoConnectTheme {
         RequestPickupContent(
             state = FakeData.pickupState.copy(status = SyncStatus.ACCEPTED),
+            rules = FakeData.guideCategories,
             onBack = {}, onAddressChange = {}, onDateChange = {}, onTimeChange = { _, _ -> },
             onCategoryKgChange = { _, _ -> }, onSubmit = {},
         )

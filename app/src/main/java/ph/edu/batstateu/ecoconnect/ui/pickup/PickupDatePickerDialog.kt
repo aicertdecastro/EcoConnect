@@ -21,7 +21,8 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /**
- * Material 3 date picker for choosing a pickup day. Days before today can't be selected.
+ * Material 3 date picker for choosing a pickup day. Days before today can't be selected,
+ * and [isDateAllowed] can restrict further (e.g. to the collection schedule).
  * [initialMillis] and the value passed to [onConfirm] are UTC midnight millis, as M3 DatePicker uses.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,16 +31,17 @@ fun PickupDatePickerDialog(
     initialMillis: Long?,
     onConfirm: (Long) -> Unit,
     onDismiss: () -> Unit,
+    isDateAllowed: (utcMillis: Long) -> Boolean = { true },
 ) {
     val todayUtc = remember { todayUtcMidnightMillis() }
     val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
     val state = rememberDatePickerState(
-        initialSelectedDateMillis = initialMillis,
-        selectableDates = remember(todayUtc, currentYear) {
-            object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis >= todayUtc
-                override fun isSelectableYear(year: Int) = year >= currentYear
-            }
+        initialSelectedDateMillis = initialMillis?.takeIf { it >= todayUtc && isDateAllowed(it) },
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long) =
+                utcTimeMillis >= todayUtc && isDateAllowed(utcTimeMillis)
+
+            override fun isSelectableYear(year: Int) = year >= currentYear
         },
     )
     val colors = DatePickerDefaults.colors(
@@ -94,8 +96,11 @@ private fun todayUtcMidnightMillis(): Long {
 @Composable
 private fun PickupDatePickerDialogPreview() {
     EcoConnectTheme {
+        // Recyclable only: Tuesdays, Thursdays and Saturdays are selectable.
+        val recyclable = FakeData.guideCategories.filter { it.id == "RECYCLABLE" }
         PickupDatePickerDialog(
-            initialMillis = FakeData.datePickerInitialMillis,
+            initialMillis = null,
+            isDateAllowed = { isPickupDateAllowed(it, recyclable) },
             onConfirm = {},
             onDismiss = {},
         )

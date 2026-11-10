@@ -44,3 +44,6 @@ val StatusRescheduled = Color(0xFF6A4BA8)
 val StatusRescheduledContainer = Color(0xFFE9E1F7)
 val StatusCollected = Color(0xFF00796B)
 val StatusCollectedContainer = Color(0xFFD2EEEA)
+
+// Waste category strong colors (others reuse status colors)
+val ResidualStrong = Color(0xFF546E7A)

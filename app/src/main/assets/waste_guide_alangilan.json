@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "community": "Barangay Alangilan, Batangas City",
+  "source": "Batangas City 2023 Socio-Economic Profile",
+  "policy": "No Segregation, No Collection",
+  "collectionMethod": "Door-to-door collection",
+  "reviewedBy": null,
+  "generalNote": "Schedules may change. Confirm the current route and any holiday adjustments with your barangay. No pickup times are published.",
+  "startQuestionId": "Q1",
+  "unsure": {
+    "title": "Not sure yet",
+    "instructions": [
+      "Keep this item separate from your other waste for now.",
+      "Ask your barangay how to dispose of it.",
+      "Do not include it in a pickup request until you know its category."
+    ]
+  },
+  "categories": [
+    {
+      "id": "BIODEGRADABLE",
+      "name": "Biodegradable",
+      "examples": ["Food scraps", "Fruit and vegetable peels", "Coffee grounds", "Leaves", "Yard trimmings"],
+      "instructions": [
+        "Keep separate in a covered container.",
+        "Compost suitable garden and food waste if possible."
+      ],
+      "requestable": true,
+      "collectionDays": ["MONDAY", "WEDNESDAY", "FRIDAY", "SUNDAY"]
+    },
+    {
+      "id": "RECYCLABLE",
+      "name": "Recyclable",
+      "examples": ["Clean bottles", "Cans", "Glass", "Paper", "Recyclable plastics"],
+      "instructions": [
+        "Keep separate from other waste.",
+        "Clean and dry recyclables where practical.",
+        "Bring reusable or recyclable items to a recycling drop-off if one is available."
+      ],
+      "requestable": true,
+      "collectionDays": ["TUESDAY", "THURSDAY", "SATURDAY"]
+    },
+    {
+      "id": "RESIDUAL",
+      "name": "Residual",
+      "examples": ["Soiled packaging", "Wrappers", "Sanitary waste", "Anything that can't be composted or recycled"],
+      "instructions": [
+        "Bag securely.",
+        "Keep separate from compostables and recyclables."
+      ],
+      "requestable": true,
+      "collectionDays": [],
+      "scheduleNote": "No separate residual pickup day is published for Alangilan. Confirm with your barangay."
+    },
+    {
+      "id": "SPECIAL",
+      "name": "Special / Hazardous",
+      "examples": ["Batteries", "Chemicals", "Fluorescent lamps", "E-waste", "Medical waste"],
+      "instructions": [
+        "Keep out of regular household bags.",
+        "Ask the barangay or City ENRO how to hand these over."
+      ],
+      "requestable": false,
+      "collectionDays": [],
+      "scheduleNote": "Not collected door-to-door. Ask the barangay or City ENRO."
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "text": "Is it a battery, chemical, lamp, electronic item, or medical waste?",
+      "hint": "Includes chargers, old phones, paint, insecticide, expired medicine, and syringes.",
+      "yes": { "result": "SPECIAL" },
+      "no": { "next": "Q2" }
+    },
+    {
+      "id": "Q2",
+      "text": "Is it food, a peel, coffee grounds, leaves, or yard trimmings?",
+      "hint": "Anything that rots naturally, like leftovers, eggshells, or grass.",
+      "yes": { "result": "BIODEGRADABLE" },
+      "no": { "next": "Q3" }
+    },
+    {
+      "id": "Q3",
+      "text": "Is it paper, cardboard, a bottle, a can, glass, or recyclable plastic?",
+      "hint": "Sachets, wrappers, and styro are not recyclable plastics.",
+      "yes": { "next": "Q4" },
+      "no": { "result": "RESIDUAL" }
+    },
+    {
+      "id": "Q4",
+      "text": "Is it clean and dry, with no food, grease, or liquid?",
+      "hint": "Rinse and dry it first if you can.",
+      "yes": { "result": "RECYCLABLE" },
+      "no": { "result": "RESIDUAL" }
+    }
+  ],
+  "items": [
+    { "name": "Banana peel", "category": "BIODEGRADABLE", "keywords": ["balat ng saging", "saging", "peel"] },
+    { "name": "Leftover rice and food", "category": "BIODEGRADABLE", "keywords": ["tirang pagkain", "tira", "kanin", "leftovers", "food scraps"] },
+    { "name": "Vegetable peels", "category": "BIODEGRADABLE", "keywords": ["balat ng gulay", "gulay", "vegetable"] },
+    { "name": "Coffee grounds", "category": "BIODEGRADABLE", "keywords": ["kape", "coffee", "sapal ng kape"] },
+    { "name": "Dried leaves", "category": "BIODEGRADABLE", "keywords": ["tuyong dahon", "dahon", "leaves"] },
+    { "name": "Eggshells", "category": "BIODEGRADABLE", "keywords": ["balat ng itlog", "itlog", "egg"] },
+    { "name": "Fish bones", "category": "BIODEGRADABLE", "keywords": ["tinik", "buto ng isda", "isda"] },
+    { "name": "Grass clippings", "category": "BIODEGRADABLE", "keywords": ["damo", "grass", "yard trimmings", "sanga"] },
+    { "name": "Corn cobs", "category": "BIODEGRADABLE", "keywords": ["busal ng mais", "mais", "corn"] },
+    { "name": "PET bottles", "category": "RECYCLABLE", "keywords": ["plastic bottle", "bote ng softdrinks", "water bottle", "mineral water"], "tip": "Empty, rinse, and flatten." },
+    { "name": "Aluminum cans", "category": "RECYCLABLE", "keywords": ["softdrink can", "lata ng softdrinks", "beer can", "tin can"], "tip": "Rinse and drain." },
+    { "name": "Sardine and food tins", "category": "RECYCLABLE", "keywords": ["lata ng sardinas", "lata", "sardinas", "corned beef"], "tip": "Rinse out food and grease first; greasy tins go to residual." },
+    { "name": "Newspapers", "category": "RECYCLABLE", "keywords": ["dyaryo", "diyaryo", "newspaper"], "tip": "Keep dry and bundled." },
+    { "name": "Cardboard boxes", "category": "RECYCLABLE", "keywords": ["karton", "kahon", "cardboard", "box"], "tip": "Flatten. Greasy boxes go to residual." },
+    { "name": "Glass bottles", "category": "RECYCLABLE", "keywords": ["bote", "babasagin", "glass"], "tip": "Rinse. Wrap broken glass and label it." },
+    { "name": "Clean office paper", "category": "RECYCLABLE", "keywords": ["papel", "bond paper", "notebook", "paper"] },
+    { "name": "Plastic containers (HDPE)", "category": "RECYCLABLE", "keywords": ["galon", "shampoo bottle", "detergent bottle", "lalagyan"], "tip": "Rinse and dry." },
+    { "name": "Sachets", "category": "RESIDUAL", "keywords": ["sachet", "shampoo sachet", "kape sachet", "3-in-1"] },
+    { "name": "Styrofoam", "category": "RESIDUAL", "keywords": ["styro", "styrofoam", "foam", "lalagyan ng pagkain"] },
+    { "name": "Disposable diapers", "category": "RESIDUAL", "keywords": ["diaper", "lampin", "pampers"], "tip": "Wrap and bag securely." },
+    { "name": "Sanitary napkins", "category": "RESIDUAL", "keywords": ["napkin", "sanitary", "pad", "panty liner"], "tip": "Wrap and bag securely." },
+    { "name": "Candy and chip wrappers", "category": "RESIDUAL", "keywords": ["wrapper", "balot ng kendi", "kendi", "chichirya", "junk food"] },
+    { "name": "Used tissue", "category": "RESIDUAL", "keywords": ["tisyu", "tissue", "napkin paper"] },
+    { "name": "Juice pouches", "category": "RESIDUAL", "keywords": ["juice", "zesto", "pouch", "doypack"] },
+    { "name": "Greasy pizza box", "category": "RESIDUAL", "keywords": ["pizza", "mamantikang karton", "oily box"] },
+    { "name": "Toothpaste tube", "category": "RESIDUAL", "keywords": ["toothpaste", "kolgeyt", "tube"] },
+    { "name": "Plastic sando bags", "category": "RESIDUAL", "keywords": ["sando bag", "supot", "plastic bag", "plastik"], "tip": "Reuse if clean before throwing away." },
+    { "name": "Batteries", "category": "SPECIAL", "keywords": ["baterya", "battery", "double A", "AA"] },
+    { "name": "Chargers and cables", "category": "SPECIAL", "keywords": ["charger", "kable", "cable", "e-waste"] },
+    { "name": "Old cellphones", "category": "SPECIAL", "keywords": ["cellphone", "cp", "selpon", "phone", "gadget"] },
+    { "name": "Fluorescent lamps", "category": "SPECIAL", "keywords": ["ilaw", "bombilya", "fluorescent", "bulb", "lamp"], "tip": "Do not break; mercury inside." },
+    { "name": "Paint and solvents", "category": "SPECIAL", "keywords": ["pintura", "paint", "thinner", "solvent"] },
+    { "name": "Insecticide cans", "category": "SPECIAL", "keywords": ["insecticide", "baygon", "pesticide", "chemical"] },
+    { "name": "Expired medicine", "category": "SPECIAL", "keywords": ["gamot", "medicine", "expired", "tableta"] },
+    { "name": "Syringes and needles", "category": "SPECIAL", "keywords": ["heringgilya", "syringe", "needle", "karayom", "insulin"], "tip": "Put in a hard, closed container." }
+  ]
+}

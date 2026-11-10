@@ -135,6 +135,9 @@ internal object FakeData {
 
     private fun request(n: Int, status: SyncStatus, items: List<WasteItem>, response: String? = null, proposed: Long? = null) =
         CollectionRequestEntity(
+            requesterName = signedInUser.fullName,
+            collectorId = if (status == SyncStatus.PENDING_SUBMISSION || status == SyncStatus.SENT) null else collectorUser.userId,
+            collectorName = if (status == SyncStatus.PENDING_SUBMISSION || status == SyncStatus.SENT) null else collectorUser.fullName,
             id = "sample-$n",
             userId = signedInUser.userId,
             wasteItems = items,
@@ -153,5 +156,12 @@ internal object FakeData {
         request(1, SyncStatus.SENT, listOf(WasteItem("RECYCLABLE", 2.0), WasteItem("RESIDUAL", 1.0))),
         request(2, SyncStatus.RESCHEDULED, listOf(WasteItem("RECYCLABLE", 4.0)), "Truck is full on Tuesday.", SAMPLE_DATE_MILLIS + 6 * DAY),
         request(3, SyncStatus.ACCEPTED, listOf(WasteItem("BIODEGRADABLE", 1.5)), "See you then!"),
+    )
+
+    /** Collector previews: requests from several residents. */
+    val collectorNew = listOf(
+        requests[1],
+        requests[1].copy(id = "sample-n2", requesterName = "Maria Reyes", wasteItems = listOf(WasteItem("BIODEGRADABLE", 5.0)), pickupDate = SAMPLE_DATE_MILLIS + 3 * DAY),
+        requests[1].copy(id = "sample-n3", requesterName = "Jose Garcia", wasteItems = listOf(WasteItem("RESIDUAL", 2.5)), pickupDate = SAMPLE_DATE_MILLIS + 5 * DAY),
     )
 }

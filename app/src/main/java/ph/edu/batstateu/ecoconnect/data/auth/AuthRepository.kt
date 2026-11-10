@@ -75,6 +75,8 @@ class AuthRepository(
 
     fun currentUserId(): String? = (authState.value as? AuthState.SignedIn)?.userId
 
+    fun currentRole(): UserRole? = (authState.value as? AuthState.SignedIn)?.role
+
     /**
      * Waits (up to [timeoutMs]) for the saved session to load from storage.
      * Returns the signed-in user id, or null if nobody is signed in.

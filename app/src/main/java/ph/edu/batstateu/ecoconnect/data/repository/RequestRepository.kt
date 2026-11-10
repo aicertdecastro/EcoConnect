@@ -123,14 +123,8 @@ class RequestRepository(
                 val server = dto.toEntity()
                 when (val action = mergeServerRequest(requestDao.getById(server.id), server)) {
                     is MergeAction.Insert -> if (requestDao.insert(action.entity) != -1L) changed++
-                    is MergeAction.UpdateStatus -> {
-                        requestDao.updateStatus(
-                            id = action.id,
-                            status = action.status,
-                            collectorResponse = action.collectorResponse,
-                            proposedDate = action.proposedDate,
-                            updatedAt = action.updatedAt,
-                        )
+                    is MergeAction.UpdateFromServer -> {
+                        requestDao.updateFromServer(action.server)
                         changed++
                     }
                     MergeAction.Skip -> Unit

@@ -17,11 +17,15 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import ph.edu.batstateu.ecoconnect.data.auth.AuthRepository
 import ph.edu.batstateu.ecoconnect.data.auth.AuthState
+import ph.edu.batstateu.ecoconnect.data.auth.UserRole
 import ph.edu.batstateu.ecoconnect.data.guide.WasteGuideRepository
 import ph.edu.batstateu.ecoconnect.data.local.CollectionReceiptEntity
 import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
 import ph.edu.batstateu.ecoconnect.data.local.EcoConnectDatabase
+import ph.edu.batstateu.ecoconnect.data.remote.AndroidNetworkMonitor
+import ph.edu.batstateu.ecoconnect.data.remote.NetworkMonitor
 import ph.edu.batstateu.ecoconnect.data.remote.RemoteRequestDataSource
+import ph.edu.batstateu.ecoconnect.data.repository.CollectorRepository
 import ph.edu.batstateu.ecoconnect.data.repository.RequestRepository
 import ph.edu.batstateu.ecoconnect.sync.SyncBackend
 import ph.edu.batstateu.ecoconnect.sync.SyncBackendProvider
@@ -68,6 +72,18 @@ class EcoConnectApp : Application(), SyncBackendProvider {
 
     val remoteRequestDataSource: RemoteRequestDataSource by lazy { RemoteRequestDataSource(supabase) }
 
+    val networkMonitor: NetworkMonitor by lazy { AndroidNetworkMonitor(this) }
+
+    val collectorRepository: CollectorRepository by lazy {
+        CollectorRepository(
+            requestDao = database.collectionRequestDao(),
+            remote = remoteRequestDataSource,
+            network = networkMonitor,
+            guide = { wasteGuideRepository.guide() },
+            onRefreshed = syncStatusStore::setLastSyncedAt,
+        )
+    }
+
     val requestRepository: RequestRepository by lazy {
         RequestRepository(
             requestDao = database.collectionRequestDao(),
@@ -91,7 +107,13 @@ class EcoConnectApp : Application(), SyncBackendProvider {
             override suspend fun oldestUnuploadedReceipt() = requestRepository.oldestUnuploadedReceipt()
             override suspend fun uploadReceipt(receipt: CollectionReceiptEntity, uploadedBy: String) =
                 requestRepository.uploadReceipt(receipt, uploadedBy)
-            override suspend fun refresh(userId: String) = requestRepository.refreshFromServer(userId)
+            // Collectors refresh their work lists; residents refresh their own requests.
+            override suspend fun refresh(userId: String): Result<Int> =
+                if (authRepository.currentRole() == UserRole.COLLECTOR) {
+                    collectorRepository.refresh(userId)
+                } else {
+                    requestRepository.refreshFromServer(userId)
+                }
             override fun onSyncCompleted(timeMillis: Long) = syncStatusStore.setLastSyncedAt(timeMillis)
         }
     }

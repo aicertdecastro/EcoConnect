@@ -58,6 +58,8 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // android.util.Log etc. return defaults in plain JVM tests instead of throwing.
+            isReturnDefaultValues = true
         }
     }
     buildFeatures {

@@ -13,6 +13,7 @@ import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
 import ph.edu.batstateu.ecoconnect.data.local.SyncStatus
 import ph.edu.batstateu.ecoconnect.data.local.WasteItem
 import ph.edu.batstateu.ecoconnect.data.remote.CollectionRequestDto
+import ph.edu.batstateu.ecoconnect.data.remote.CollectionRequestRowDto
 import ph.edu.batstateu.ecoconnect.data.remote.MergeAction
 import ph.edu.batstateu.ecoconnect.data.remote.formatServerDate
 import ph.edu.batstateu.ecoconnect.data.remote.formatServerTimestamp
@@ -186,10 +187,7 @@ class MappersTest {
     fun newerServerStatusUpdatesSentRow() {
         val server = sent.copy(syncStatus = SyncStatus.ACCEPTED, collectorResponse = "See you", updatedAt = sent.updatedAt + 5000)
         val action = mergeServerRequest(sent, server)
-        assertEquals(
-            MergeAction.UpdateStatus(sent.id, SyncStatus.ACCEPTED, "See you", null, sent.updatedAt + 5000),
-            action,
-        )
+        assertEquals(MergeAction.UpdateFromServer(server), action)
     }
 
     @Test
@@ -255,5 +253,66 @@ class MappersTest {
         assertEquals(listOf(WasteItem("RECYCLABLE", 2.0)), e.wasteItems)
         assertEquals("07:30", e.pickupTime)
         assertEquals(createdAt, e.createdAt)
+    }
+
+    // ---------- Collector fields ----------
+
+    private val rowJson = """
+        {"id":"r1","user_id":"u1","waste_items":[{"category":"RECYCLABLE","kg":4}],"total_kg":4,
+         "address":"Brgy. Alangilan","pickup_date":"2026-11-20","pickup_time":"07:30:00","notes":null,
+         "status":"RESCHEDULED","collector_id":"c1","collector_response":"Truck is full","proposed_date":"2026-11-21",
+         "created_at":"2026-11-18T08:30:15.25+00:00","updated_at":"2026-11-18T08:30:15.25+00:00",
+         "requester":{"full_name":"Juan Dela Cruz"},"collector":{"full_name":"Pedro Santos"}}
+    """.trimIndent()
+
+    @Test
+    fun embeddedRowMapsCollectorFields() {
+        val e = lenientJson.decodeFromString(CollectionRequestRowDto.serializer(), rowJson).toEntity()
+        assertEquals("Juan Dela Cruz", e.requesterName)
+        assertEquals("Pedro Santos", e.collectorName)
+        assertEquals("c1", e.collectorId)
+        assertEquals(SyncStatus.RESCHEDULED, e.syncStatus)
+        assertEquals("Truck is full", e.collectorResponse)
+        assertEquals(nov20 + 86_400_000L, e.proposedDate)
+    }
+
+    @Test
+    fun nullEmbedsGiveNullNames() {
+        val body = rowJson.replace("""{"full_name":"Pedro Santos"}""", "null")
+            .replace(""""collector_id":"c1"""", """"collector_id":null""")
+            .replace("""{"full_name":"Juan Dela Cruz"}""", """{"full_name":"  "}""")
+        val e = lenientJson.decodeFromString(CollectionRequestRowDto.serializer(), body).toEntity()
+        assertNull(e.collectorName)
+        assertNull(e.collectorId)
+        assertNull("blank names are treated as missing", e.requesterName)
+    }
+
+    @Test
+    fun missingEmbedKeysDecode() {
+        val body = rowJson.substringBefore("\"requester\"").trimEnd().removeSuffix(",") + "}"
+        val e = lenientJson.decodeFromString(CollectionRequestRowDto.serializer(), body).toEntity()
+        assertNull(e.requesterName)
+        assertNull(e.collectorName)
+    }
+
+    @Test
+    fun collectorIdIsPushedAndPulled() {
+        assertEquals("c9", entity.copy(collectorId = "c9").toDto().collectorId)
+        assertEquals("c", lenientJson.decodeFromString(CollectionRequestDto.serializer(), serverDtoJsonWithCollector).toEntity().collectorId)
+    }
+
+    private val serverDtoJsonWithCollector = """
+        {"id":"a","user_id":"u","waste_items":[],"total_kg":0,"address":"x","pickup_date":"2026-11-20",
+         "pickup_time":"07:30","status":"ACCEPTED","collector_id":"c"}
+    """.trimIndent()
+
+    @Test
+    fun collectorNameChangeTriggersUpdateButKeepsSentAt() {
+        val local = sent.copy(sentAt = 42L, collectorId = "c1", syncStatus = SyncStatus.ACCEPTED)
+        val server = local.copy(sentAt = null, collectorName = "Pedro Santos")
+        val action = mergeServerRequest(local, server)
+        assertTrue(action is MergeAction.UpdateFromServer)
+        assertEquals("Pedro Santos", (action as MergeAction.UpdateFromServer).server.collectorName)
+        assertEquals(MergeAction.Skip, mergeServerRequest(server, server))
     }
 }

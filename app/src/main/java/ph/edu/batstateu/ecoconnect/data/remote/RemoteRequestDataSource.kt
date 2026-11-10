@@ -4,6 +4,7 @@ import android.util.Log
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.exception.PostgrestRestException
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.buildJsonObject
@@ -21,7 +22,7 @@ private const val UNIQUE_VIOLATION = "23505"
  * Supabase access for requests and receipts. Every call returns a [Result] and
  * never throws (except coroutine cancellation), so network errors can't crash the app.
  */
-class RemoteRequestDataSource(private val client: SupabaseClient) {
+class RemoteRequestDataSource(private val client: SupabaseClient) : CollectorRemote {
 
     /** Idempotent: retrying with the same id never creates a duplicate. */
     suspend fun pushRequest(dto: CollectionRequestDto): Result<Unit> = safeCall("pushRequest ${dto.id}") {
@@ -35,34 +36,45 @@ class RemoteRequestDataSource(private val client: SupabaseClient) {
         }
     }
 
-    /** Requests owned by [userId] (RLS also restricts users to their own rows). */
-    suspend fun fetchMyRequests(userId: String): Result<List<CollectionRequestDto>> = safeCall("fetchMyRequests") {
-        client.from(REQUESTS).select {
+    /** Requests owned by [userId] (RLS also restricts users to their own rows), with names embedded. */
+    suspend fun fetchMyRequests(userId: String): Result<List<CollectionRequestRowDto>> = safeCall("fetchMyRequests") {
+        client.from(REQUESTS).select(Columns.raw(REQUEST_ROW_SELECT)) {
             filter { eq("user_id", userId) }
             order("created_at", Order.DESCENDING)
-        }.decodeList<CollectionRequestDto>()
+        }.decodeList<CollectionRequestRowDto>()
     }
 
-    /** Collectors only: RLS returns every request. */
-    suspend fun fetchAllRequests(): Result<List<CollectionRequestDto>> = safeCall("fetchAllRequests") {
-        client.from(REQUESTS).select {
-            order("created_at", Order.DESCENDING)
-        }.decodeList<CollectionRequestDto>()
-    }
+    /** Collectors: SENT and unassigned requests, plus every request assigned to [collectorId]. */
+    override suspend fun fetchCollectorRequests(collectorId: String): Result<List<CollectionRequestRowDto>> =
+        safeCall("fetchCollectorRequests") {
+            client.from(REQUESTS).select(Columns.raw(REQUEST_ROW_SELECT)) {
+                filter {
+                    or {
+                        and {
+                            eq("status", SyncStatus.SENT.name)
+                            exact("collector_id", null)
+                        }
+                        eq("collector_id", collectorId)
+                    }
+                }
+                order("pickup_date", Order.ASCENDING)
+            }.decodeList<CollectionRequestRowDto>()
+        }
 
     /**
-     * Collectors only: accept, decline, reschedule or mark collected. Assigns the
-     * request to [collectorId]; RLS rejects requests assigned to someone else.
+     * Collectors: accept, decline or reschedule a SENT request and assign it to [collectorId].
+     * Only matches rows that are still SENT and unassigned (or already ours), and returns the
+     * updated rows via `select()` — an EMPTY list means another collector took it first.
      * [proposedDate] is "yyyy-MM-dd" (for RESCHEDULED).
      */
-    suspend fun respondToRequest(
+    override suspend fun respondToRequest(
         id: String,
         collectorId: String,
         status: SyncStatus,
         response: String?,
         proposedDate: String?,
-    ): Result<Unit> = safeCall("respondToRequest $id") {
-        require(status != SyncStatus.PENDING_SUBMISSION && status != SyncStatus.SENT) { "Not a collector response: $status" }
+    ): Result<List<CollectionRequestRowDto>> = safeCall("respondToRequest $id") {
+        require(status in COLLECTOR_RESPONSES) { "Not a collector response: $status" }
         client.from(REQUESTS).update(
             buildJsonObject {
                 put("status", status.name)
@@ -72,8 +84,16 @@ class RemoteRequestDataSource(private val client: SupabaseClient) {
                 put("updated_at", formatServerTimestamp(System.currentTimeMillis()))
             },
         ) {
-            filter { eq("id", id) }
-        }
+            select(Columns.raw(REQUEST_ROW_SELECT))
+            filter {
+                eq("id", id)
+                eq("status", SyncStatus.SENT.name)
+                or {
+                    exact("collector_id", null)
+                    eq("collector_id", collectorId)
+                }
+            }
+        }.decodeList<CollectionRequestRowDto>()
     }
 
     /** Idempotent on (request_id, uploaded_by). */
@@ -96,4 +116,21 @@ class RemoteRequestDataSource(private val client: SupabaseClient) {
         Log.w(TAG, "$what failed: ${e.javaClass.simpleName}: ${e.message}")
         Result.failure(e)
     }
+}
+
+/** Statuses a collector may set from the respond actions. */
+val COLLECTOR_RESPONSES = setOf(SyncStatus.ACCEPTED, SyncStatus.DECLINED, SyncStatus.RESCHEDULED)
+
+/** Collector-side server calls, behind an interface so CollectorRepository can be tested. */
+interface CollectorRemote {
+    suspend fun fetchCollectorRequests(collectorId: String): Result<List<CollectionRequestRowDto>>
+
+    /** Returns the updated rows; empty when no row matched (already taken). */
+    suspend fun respondToRequest(
+        id: String,
+        collectorId: String,
+        status: SyncStatus,
+        response: String?,
+        proposedDate: String?,
+    ): Result<List<CollectionRequestRowDto>>
 }

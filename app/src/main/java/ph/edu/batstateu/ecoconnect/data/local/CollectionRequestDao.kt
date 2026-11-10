@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -49,23 +50,65 @@ interface CollectionRequestDao {
     @Query("UPDATE collection_requests SET userId = :userId WHERE userId = '$LEGACY_DEMO_USER_ID'")
     suspend fun claimDemoRows(userId: String): Int
 
+    /** Applies a server row to an already-sent local row; keeps the local sentAt. */
     @Query(
         """
         UPDATE collection_requests
         SET syncStatus = :status,
             collectorResponse = :collectorResponse,
             proposedDate = :proposedDate,
+            collectorId = :collectorId,
+            collectorName = :collectorName,
+            requesterName = :requesterName,
             updatedAt = :updatedAt
         WHERE id = :id
         """,
     )
-    suspend fun updateStatus(
+    suspend fun updateFromServer(
         id: String,
         status: SyncStatus,
-        collectorResponse: String? = null,
-        proposedDate: Long? = null,
-        updatedAt: Long = System.currentTimeMillis(),
+        collectorResponse: String?,
+        proposedDate: Long?,
+        collectorId: String?,
+        collectorName: String?,
+        requesterName: String?,
+        updatedAt: Long,
     )
+
+    suspend fun updateFromServer(server: CollectionRequestEntity) = updateFromServer(
+        id = server.id,
+        status = server.syncStatus,
+        collectorResponse = server.collectorResponse,
+        proposedDate = server.proposedDate,
+        collectorId = server.collectorId,
+        collectorName = server.collectorName,
+        requesterName = server.requesterName,
+        updatedAt = server.updatedAt,
+    )
+
+    // ---------- Collector views (rows owned by other users, cached from the server) ----------
+
+    /** SENT and unassigned, soonest pickup first. */
+    @Query("SELECT * FROM collection_requests WHERE syncStatus = 'SENT' AND collectorId IS NULL AND userId != :collectorId ORDER BY pickupDate, createdAt")
+    fun observeUnassigned(collectorId: String): Flow<List<CollectionRequestEntity>>
+
+    /** Requests assigned to [collectorId] whose status name is in [statuses], soonest pickup first. */
+    @Query("SELECT * FROM collection_requests WHERE collectorId = :collectorId AND syncStatus IN (:statuses) ORDER BY pickupDate, createdAt")
+    fun observeAssigned(collectorId: String, statuses: List<String>): Flow<List<CollectionRequestEntity>>
+
+    /** Insert or overwrite rows that mirror the server (never used for the user's own unsent rows). */
+    @Upsert
+    suspend fun upsertAll(requests: List<CollectionRequestEntity>)
+
+    /**
+     * Drops cached rows of OTHER users that the server no longer shows this collector
+     * (e.g. taken by someone else). Never touches unsent rows.
+     */
+    @Query("DELETE FROM collection_requests WHERE userId != :collectorId AND syncStatus != 'PENDING_SUBMISSION' AND id NOT IN (:keepIds)")
+    suspend fun deleteStaleCollectorRows(collectorId: String, keepIds: List<String>): Int
+
+    @Query("DELETE FROM collection_requests WHERE userId != :collectorId AND syncStatus != 'PENDING_SUBMISSION'")
+    suspend fun deleteAllCollectorRows(collectorId: String): Int
 
     companion object {
         /** User id used before authentication was added. */

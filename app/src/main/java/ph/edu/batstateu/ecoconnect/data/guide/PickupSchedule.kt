@@ -1,5 +1,7 @@
 package ph.edu.batstateu.ecoconnect.data.guide
 
+import ph.edu.batstateu.ecoconnect.data.local.WasteItem
+
 /** Which pickup dates are allowed for a set of selected categories. Pure Kotlin. */
 object PickupSchedule {
 
@@ -16,5 +18,17 @@ object PickupSchedule {
     fun coverage(day: Weekday, selected: List<GuideCategory>): Coverage {
         val (collected, notCollected) = selected.partition { collectsOn(it, day) }
         return Coverage(collected, notCollected)
+    }
+
+    /**
+     * Dates a collector may propose for a request: a collection day of at least one of the
+     * request's waste categories (RESIDUAL, with no published days, allows any day).
+     * Same rule residents get when choosing a pickup date.
+     */
+    fun isProposalDateAllowed(utcMillis: Long, wasteItems: List<WasteItem>, guide: WasteGuide): Boolean {
+        val categories = wasteItems.mapNotNull { item ->
+            guide.categories.firstOrNull { it.id.equals(item.category, ignoreCase = true) }
+        }
+        return isDateAllowed(Weekday.fromUtcMillis(utcMillis), categories)
     }
 }

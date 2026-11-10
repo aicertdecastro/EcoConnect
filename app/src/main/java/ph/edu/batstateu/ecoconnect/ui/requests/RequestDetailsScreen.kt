@@ -83,12 +83,7 @@ fun RequestDetailsScreen(
                 Field("Total", "${formatKg(request.totalKg)} kg")
             }
 
-            if (request.collectorResponse != null || request.proposedDate != null) {
-                Section("Collector") {
-                    request.proposedDate?.let { Field("Proposed date", formatPickupDate(it)) }
-                    request.collectorResponse?.takeIf { it.isNotBlank() }?.let { Field("Message", it) }
-                }
-            }
+            CollectorResponseNote(request)
 
             Section("Sync") {
                 Field("Created", formatMoment(request.createdAt))

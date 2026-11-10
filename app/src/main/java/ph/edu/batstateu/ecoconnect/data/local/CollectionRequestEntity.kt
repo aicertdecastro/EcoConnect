@@ -24,6 +24,11 @@ data class CollectionRequestEntity(
     val collectorResponse: String? = null,
     /** New date proposed by the collector when [syncStatus] is RESCHEDULED. */
     val proposedDate: Long? = null,
+    /** Collector who responded (null while unassigned). */
+    val collectorId: String? = null,
+    /** Display names from `profiles`, filled when rows come from the server. */
+    val collectorName: String? = null,
+    val requesterName: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     /** When the upload to Supabase succeeded (local only; used for the R2 sync-delay metric). */

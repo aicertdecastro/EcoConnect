@@ -185,16 +185,7 @@ private fun RequestCard(request: CollectionRequestEntity, onClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
             )
-            request.proposedDate?.let {
-                Text(
-                    "Collector proposed: ${formatPickupDate(it)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            request.collectorResponse?.takeIf { it.isNotBlank() }?.let {
-                Text("“$it”", style = MaterialTheme.typography.bodyMedium)
-            }
+            CollectorResponseNote(request, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

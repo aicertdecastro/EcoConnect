@@ -19,7 +19,7 @@ import ph.edu.batstateu.ecoconnect.data.auth.AuthState
 import ph.edu.batstateu.ecoconnect.data.auth.UserRole
 import ph.edu.batstateu.ecoconnect.ui.auth.LoginRoute
 import ph.edu.batstateu.ecoconnect.ui.auth.SignUpRoute
-import ph.edu.batstateu.ecoconnect.ui.collector.CollectorHomeScreen
+
 import ph.edu.batstateu.ecoconnect.ui.viewmodel.AuthViewModel
 
 /**
@@ -36,7 +36,7 @@ fun AppRoot(viewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory
         AuthState.SignedOut -> AuthNavHost(viewModel)
         is AuthState.SignedIn -> key(state.userId) {
             when (state.role) {
-                UserRole.COLLECTOR -> CollectorHomeScreen(user = state, onSignOut = viewModel::signOut)
+                UserRole.COLLECTOR -> CollectorRoot(user = state, onSignOut = viewModel::signOut)
                 UserRole.USER -> EcoConnectRoot(user = state, onSignOut = viewModel::signOut)
             }
         }

@@ -37,6 +37,7 @@ fun CollectionRequestEntity.toDto(): CollectionRequestDto = CollectionRequestDto
     notes = notes,
     status = syncStatus.toServerStatus(),
     collectorResponse = collectorResponse,
+    collectorId = collectorId,
     proposedDate = proposedDate?.let(::formatServerDate),
     createdAt = formatServerTimestamp(createdAt),
     updatedAt = formatServerTimestamp(updatedAt),
@@ -56,6 +57,29 @@ fun CollectionRequestDto.toEntity(): CollectionRequestEntity {
         syncStatus = syncStatusFromServer(status),
         collectorResponse = collectorResponse,
         proposedDate = proposedDate?.let(::parseServerDate),
+        collectorId = collectorId,
+        createdAt = created ?: 0L,
+        updatedAt = updatedAt?.let(::parseServerTimestamp) ?: created ?: 0L,
+    )
+}
+
+/** Server row (with embedded names) → local entity. Throws [IllegalArgumentException] if a date is malformed. */
+fun CollectionRequestRowDto.toEntity(): CollectionRequestEntity {
+    val created = createdAt?.let(::parseServerTimestamp)
+    return CollectionRequestEntity(
+        id = id,
+        userId = userId,
+        wasteItems = wasteItems,
+        address = address,
+        pickupDate = parseServerDate(pickupDate),
+        pickupTime = normalizeTime(pickupTime),
+        notes = notes,
+        syncStatus = syncStatusFromServer(status),
+        collectorResponse = collectorResponse,
+        proposedDate = proposedDate?.let(::parseServerDate),
+        collectorId = collectorId,
+        collectorName = collector?.fullName?.takeIf { it.isNotBlank() },
+        requesterName = requester?.fullName?.takeIf { it.isNotBlank() },
         createdAt = created ?: 0L,
         updatedAt = updatedAt?.let(::parseServerTimestamp) ?: created ?: 0L,
     )
@@ -76,14 +100,8 @@ sealed interface MergeAction {
     /** Row exists only on the server (e.g. made on another phone). */
     data class Insert(val entity: CollectionRequestEntity) : MergeAction
 
-    /** Server has a newer status / collector reply for a row we already sent. */
-    data class UpdateStatus(
-        val id: String,
-        val status: SyncStatus,
-        val collectorResponse: String?,
-        val proposedDate: Long?,
-        val updatedAt: Long,
-    ) : MergeAction
+    /** Server has a newer status, collector reply or names for a row we already sent. */
+    data class UpdateFromServer(val server: CollectionRequestEntity) : MergeAction
 
     data object Skip : MergeAction
 }
@@ -97,14 +115,11 @@ fun mergeServerRequest(local: CollectionRequestEntity?, server: CollectionReques
     local.syncStatus == SyncStatus.PENDING_SUBMISSION -> MergeAction.Skip
     local.syncStatus == server.syncStatus &&
         local.collectorResponse == server.collectorResponse &&
-        local.proposedDate == server.proposedDate -> MergeAction.Skip
-    else -> MergeAction.UpdateStatus(
-        id = server.id,
-        status = server.syncStatus,
-        collectorResponse = server.collectorResponse,
-        proposedDate = server.proposedDate,
-        updatedAt = maxOf(server.updatedAt, local.updatedAt),
-    )
+        local.proposedDate == server.proposedDate &&
+        local.collectorId == server.collectorId &&
+        local.collectorName == server.collectorName &&
+        local.requesterName == server.requesterName -> MergeAction.Skip
+    else -> MergeAction.UpdateFromServer(server.copy(updatedAt = maxOf(server.updatedAt, local.updatedAt)))
 }
 
 // ---------- Date / time helpers (java.util only: minSdk 24 has no java.time) ----------

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ListAlt
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.CenterFocusWeak
 import androidx.compose.material.icons.outlined.Eco
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material3.Card
@@ -65,6 +66,7 @@ enum class HomeTile(val label: String, val icon: ImageVector, val accent: Color)
     RequestPickup("Request Pickup", Icons.Outlined.LocalShipping, TileAmber),
     MyRequests("My Requests", Icons.AutoMirrored.Outlined.ListAlt, TileBlue),
     BluetoothConfirm("Bluetooth Confirm", Icons.Outlined.Bluetooth, TileTeal),
+    ScanWaste("Scan Waste (test)", Icons.Outlined.CenterFocusWeak, EcoGreen100),
 }
 
 @Composable

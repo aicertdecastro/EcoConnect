@@ -8,7 +8,9 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +28,8 @@ import ph.edu.batstateu.ecoconnect.data.remote.AndroidNetworkMonitor
 import ph.edu.batstateu.ecoconnect.data.remote.NetworkMonitor
 import ph.edu.batstateu.ecoconnect.data.remote.RemoteRequestDataSource
 import ph.edu.batstateu.ecoconnect.data.repository.CollectorRepository
+import ph.edu.batstateu.ecoconnect.data.scan.ScanRepository
+import ph.edu.batstateu.ecoconnect.data.scan.SupabaseClassifierApi
 import ph.edu.batstateu.ecoconnect.data.repository.RequestRepository
 import ph.edu.batstateu.ecoconnect.sync.SyncBackend
 import ph.edu.batstateu.ecoconnect.sync.SyncBackendProvider
@@ -50,6 +54,8 @@ class EcoConnectApp : Application(), SyncBackendProvider {
         ) {
             install(Auth) // session is saved on the device and restored on launch
             install(Postgrest)
+            install(Functions) // waste scanner (Gemini runs server-side in an Edge Function)
+            requestTimeout = 40.seconds // AI classification can take longer than the 10 s default
         }
     }
 
@@ -73,6 +79,9 @@ class EcoConnectApp : Application(), SyncBackendProvider {
     val remoteRequestDataSource: RemoteRequestDataSource by lazy { RemoteRequestDataSource(supabase) }
 
     val networkMonitor: NetworkMonitor by lazy { AndroidNetworkMonitor(this) }
+
+    // Waste scanner: photo → classify-waste Edge Function (Gemini) → category.
+    val scanRepository: ScanRepository by lazy { ScanRepository(SupabaseClassifierApi(supabase), networkMonitor) }
 
     val collectorRepository: CollectorRepository by lazy {
         CollectorRepository(

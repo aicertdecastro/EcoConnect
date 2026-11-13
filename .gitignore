@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Secrets for Supabase Edge Functions (Gemini key) - never commit
+supabase/.env
+*.env

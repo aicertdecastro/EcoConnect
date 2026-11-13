@@ -27,6 +27,7 @@ import ph.edu.batstateu.ecoconnect.ui.pickup.RequestPickupRoute
 import ph.edu.batstateu.ecoconnect.ui.profile.ProfileScreen
 import ph.edu.batstateu.ecoconnect.ui.requests.MyRequestsRoute
 import ph.edu.batstateu.ecoconnect.ui.requests.RequestDetailsRoute
+import ph.edu.batstateu.ecoconnect.ui.scan.ScanRoute
 
 /** Signed-in resident app: bottom bar on top-level routes + the navigation graph. */
 @Composable
@@ -85,6 +86,7 @@ fun EcoNavHost(
                         HomeTile.BluetoothConfirm -> navController.navigate(EcoDestinations.BLUETOOTH_CONFIRM)
                         HomeTile.WasteGuide -> navController.navigateTopLevel(EcoDestinations.WASTE_GUIDE)
                         HomeTile.MyRequests -> navController.navigateTopLevel(EcoDestinations.MY_REQUESTS)
+                        HomeTile.ScanWaste -> navController.navigate(EcoDestinations.SCAN)
                     }
                 },
             )
@@ -105,6 +107,10 @@ fun EcoNavHost(
                 // Saved to Room as PENDING_SUBMISSION; return to Home, which updates from the database.
                 onSubmitted = { navController.popBackStack(EcoDestinations.HOME, inclusive = false) },
             )
+        }
+
+        composable(EcoDestinations.SCAN) {
+            ScanRoute(onBack = { navController.popBackStack() })
         }
 
         // ---- Waste guide ----

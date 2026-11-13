@@ -8,6 +8,9 @@ object EcoDestinations {
     const val BLUETOOTH_CONFIRM = "bluetooth_confirm"
     const val PROFILE = "profile"
 
+    // Waste scanner (test screen for the Gemini integration)
+    const val SCAN = "scan"
+
     // Request Pickup, with an optional pre-selected waste category id.
     const val REQUEST_PICKUP = "request_pickup"
     const val ARG_CATEGORY = "category"

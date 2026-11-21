@@ -15,9 +15,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import ph.edu.batstateu.ecoconnect.bluetooth.BtRole
 import ph.edu.batstateu.ecoconnect.data.auth.AuthState
+import ph.edu.batstateu.ecoconnect.ui.bluetooth.BtConfirmRoute
 import ph.edu.batstateu.ecoconnect.ui.components.EcoBottomBar
-import ph.edu.batstateu.ecoconnect.ui.components.PlaceholderScreen
 import ph.edu.batstateu.ecoconnect.ui.guide.GuideHomeRoute
 import ph.edu.batstateu.ecoconnect.ui.guide.GuideQuizRoute
 import ph.edu.batstateu.ecoconnect.ui.guide.GuideResultRoute
@@ -83,7 +84,8 @@ fun EcoNavHost(
                 onTileClick = { tile ->
                     when (tile) {
                         HomeTile.RequestPickup -> openRequestPickup(null)
-                        HomeTile.BluetoothConfirm -> navController.navigate(EcoDestinations.BLUETOOTH_CONFIRM)
+                        // Confirmation starts from an accepted request, so open the list.
+                        HomeTile.BluetoothConfirm -> navController.navigateTopLevel(EcoDestinations.MY_REQUESTS)
                         HomeTile.WasteGuide -> navController.navigateTopLevel(EcoDestinations.WASTE_GUIDE)
                         HomeTile.MyRequests -> navController.navigateTopLevel(EcoDestinations.MY_REQUESTS)
                         HomeTile.ScanWaste -> navController.navigate(EcoDestinations.SCAN)
@@ -147,12 +149,20 @@ fun EcoNavHost(
             RequestDetailsRoute(
                 requestId = entry.arguments?.getString(EcoDestinations.ARG_REQUEST_ID).orEmpty(),
                 onBack = { navController.popBackStack() },
+                onConfirmPickup = { navController.navigate(EcoDestinations.confirmPickup(it)) { launchSingleTop = true } },
+            )
+        }
+        composable(
+            route = EcoDestinations.CONFIRM_PICKUP_PATTERN,
+            arguments = listOf(navArgument(EcoDestinations.ARG_REQUEST_ID) { type = NavType.StringType }),
+        ) { entry ->
+            BtConfirmRoute(
+                role = BtRole.USER,
+                requestId = entry.arguments?.getString(EcoDestinations.ARG_REQUEST_ID).orEmpty(),
+                onClose = { navController.popBackStack() },
             )
         }
         composable(EcoDestinations.PROFILE) { ProfileScreen(user = user, onSignOut = onSignOut) }
-        composable(EcoDestinations.BLUETOOTH_CONFIRM) {
-            PlaceholderScreen(title = "Bluetooth Confirm", onBack = { navController.popBackStack() })
-        }
     }
 }
 

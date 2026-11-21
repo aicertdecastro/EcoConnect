@@ -54,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import ph.edu.batstateu.ecoconnect.data.local.CollectionReceiptEntity
 import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
 import ph.edu.batstateu.ecoconnect.data.local.SyncStatus
 import ph.edu.batstateu.ecoconnect.data.local.totalKg
@@ -61,6 +62,8 @@ import ph.edu.batstateu.ecoconnect.data.repository.CollectorAction
 import ph.edu.batstateu.ecoconnect.ui.components.SyncStatusChip
 import ph.edu.batstateu.ecoconnect.ui.pickup.PickupDatePickerDialog
 import ph.edu.batstateu.ecoconnect.ui.preview.FakeData
+import ph.edu.batstateu.ecoconnect.ui.requests.ReceiptSection
+import ph.edu.batstateu.ecoconnect.ui.requests.canConfirmPickup
 import ph.edu.batstateu.ecoconnect.ui.requests.categoryLabel
 import ph.edu.batstateu.ecoconnect.ui.requests.formatKg
 import ph.edu.batstateu.ecoconnect.ui.requests.formatMoment
@@ -76,7 +79,7 @@ private enum class ActionDialog { None, Accept, Decline, ProposeDate, ProposeMes
 
 /**
  * Full request details for collectors. New (SENT, unassigned) requests get
- * Accept / Decline / Propose date; accepted ones get the Bluetooth placeholder.
+ * Accept / Decline / Propose date; accepted or rescheduled ones get Bluetooth confirmation.
  * [isDateAllowed] limits proposed dates to the request's collection days.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,6 +94,7 @@ fun CollectorRequestDetailsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    receipt: CollectionReceiptEntity? = null,
 ) {
     var dialog by rememberSaveable { mutableStateOf(ActionDialog.None) }
     var proposedDate by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -127,7 +131,7 @@ fun CollectorRequestDetailsScreen(
                         onDecline = { dialog = ActionDialog.Decline },
                         onPropose = { dialog = ActionDialog.ProposeDate },
                     )
-                    request.syncStatus == SyncStatus.ACCEPTED -> OutlinedButton(
+                    canConfirmPickup(request, receipt) && receipt == null -> Button(
                         onClick = onConfirmPickup,
                         shape = PillShape,
                         modifier = Modifier
@@ -136,6 +140,10 @@ fun CollectorRequestDetailsScreen(
                     ) {
                         Icon(Icons.Outlined.Bluetooth, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text("Confirm pickup (Bluetooth)", modifier = Modifier.padding(start = 8.dp))
+                    }
+                    // Already collected here: lets a retry fill a receipt missing on the resident's phone.
+                    canConfirmPickup(request, receipt) -> TextButton(onClick = onConfirmPickup, modifier = Modifier.fillMaxWidth()) {
+                        Text("Resident's phone not updated? Confirm again")
                     }
                 }
             }
@@ -153,6 +161,7 @@ fun CollectorRequestDetailsScreen(
                 Text(request.requesterName ?: "Resident", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 SyncStatusChip(request.syncStatus)
             }
+            receipt?.let { ReceiptSection(it) }
 
             Section("Pickup") {
                 Field("Date", formatPickupDate(request.pickupDate))

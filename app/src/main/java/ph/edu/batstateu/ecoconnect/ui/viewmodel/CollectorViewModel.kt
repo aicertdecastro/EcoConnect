@@ -26,6 +26,7 @@ import ph.edu.batstateu.ecoconnect.data.auth.AuthState
 import ph.edu.batstateu.ecoconnect.data.auth.UserRole
 import ph.edu.batstateu.ecoconnect.data.guide.WasteGuide
 import ph.edu.batstateu.ecoconnect.data.guide.WasteGuideRepository
+import ph.edu.batstateu.ecoconnect.data.local.CollectionReceiptEntity
 import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
 import ph.edu.batstateu.ecoconnect.data.repository.CollectorAction
 import ph.edu.batstateu.ecoconnect.data.repository.CollectorRepository
@@ -81,6 +82,8 @@ class CollectorViewModel(
     private val authRepository: AuthRepository,
     private val guideRepository: WasteGuideRepository,
     syncStatusStore: SyncStatusStore,
+    /** This phone's Bluetooth receipt for a request. */
+    private val receipts: (requestId: String) -> Flow<CollectionReceiptEntity?> = { flowOf(null) },
 ) : ViewModel() {
 
     /** Only a signed-in COLLECTOR gets data; anyone else sees empty lists and can't act. */
@@ -127,6 +130,8 @@ class CollectorViewModel(
     }
 
     fun request(id: String): Flow<CollectionRequestEntity?> = repository.observeRequest(id)
+
+    fun receipt(id: String): Flow<CollectionReceiptEntity?> = receipts(id)
 
     /** Pull-to-refresh and on open. Offline → keeps showing saved data. */
     fun refresh(showErrors: Boolean = true) {
@@ -183,7 +188,10 @@ class CollectorViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as EcoConnectApp
-                CollectorViewModel(app.collectorRepository, app.authRepository, app.wasteGuideRepository, app.syncStatusStore)
+                CollectorViewModel(
+                    app.collectorRepository, app.authRepository, app.wasteGuideRepository, app.syncStatusStore,
+                    receipts = app.confirmationRepository::observeReceipt,
+                )
             }
         }
     }

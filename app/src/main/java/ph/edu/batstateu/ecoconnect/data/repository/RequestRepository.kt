@@ -107,8 +107,20 @@ class RequestRepository(
 
     suspend fun oldestUnuploadedReceipt(): CollectionReceiptEntity? = receiptDao.getOldestNotUploaded()
 
-    suspend fun uploadReceipt(receipt: CollectionReceiptEntity, uploadedBy: String): Result<Unit> =
-        remote.pushReceipt(receipt.toDto(uploadedBy)).map { receiptDao.markUploaded(receipt.receiptId) }
+    /**
+     * Uploads the receipt; when this phone is the collector, also sets the server request to
+     * COLLECTED. Marked uploaded only after every call succeeded (all are idempotent).
+     */
+    suspend fun uploadReceipt(receipt: CollectionReceiptEntity, uploadedBy: String): Result<Unit> {
+        remote.pushReceipt(receipt.toDto(uploadedBy)).onFailure { return Result.failure(it) }
+        if (uploadedBy == receipt.collectorId) {
+            remote.markCollected(receipt.requestId, receipt.collectorId).onFailure { return Result.failure(it) }
+        }
+        receiptDao.markUploaded(receipt.receiptId)
+        return Result.success(Unit)
+    }
+
+    fun observeReceipt(requestId: String): Flow<CollectionReceiptEntity?> = receiptDao.observeForRequest(requestId)
 
     /**
      * Pulls the user's requests from the server into Room. Local rows that are still

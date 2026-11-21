@@ -17,7 +17,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import androidx.room.withTransaction
+import ph.edu.batstateu.ecoconnect.bluetooth.BluetoothController
 import ph.edu.batstateu.ecoconnect.data.auth.AuthRepository
+import ph.edu.batstateu.ecoconnect.data.repository.ConfirmationRepository
 import ph.edu.batstateu.ecoconnect.data.auth.AuthState
 import ph.edu.batstateu.ecoconnect.data.auth.UserRole
 import ph.edu.batstateu.ecoconnect.data.guide.WasteGuideRepository
@@ -101,6 +104,18 @@ class EcoConnectApp : Application(), SyncBackendProvider {
             requestSync = { syncScheduler.enqueueSync() },
         )
     }
+
+    // Bluetooth pickup confirmation: receipt + COLLECTED in one Room transaction, then sync.
+    val confirmationRepository: ConfirmationRepository by lazy {
+        ConfirmationRepository(
+            requestDao = database.collectionRequestDao(),
+            receiptDao = database.collectionReceiptDao(),
+            inTransaction = { block -> database.withTransaction { block() } },
+            requestSync = { syncScheduler.enqueueSync() },
+        )
+    }
+
+    val bluetoothController: BluetoothController by lazy { BluetoothController(this) }
 
     /** Read-only waste guide bundled in assets; parsed once and kept in memory. */
     val wasteGuideRepository: WasteGuideRepository by lazy {

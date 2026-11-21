@@ -22,6 +22,7 @@ import ph.edu.batstateu.ecoconnect.data.auth.AuthRepository
 import ph.edu.batstateu.ecoconnect.data.auth.AuthState
 import ph.edu.batstateu.ecoconnect.data.guide.WasteGuide
 import ph.edu.batstateu.ecoconnect.data.guide.WasteGuideRepository
+import ph.edu.batstateu.ecoconnect.data.local.CollectionReceiptEntity
 import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
 import ph.edu.batstateu.ecoconnect.data.local.WasteItem
 import ph.edu.batstateu.ecoconnect.data.repository.RequestRepository
@@ -116,6 +117,9 @@ class RequestViewModel(
     fun retryNow() = syncScheduler.enqueueSync()
 
     fun request(id: String): Flow<CollectionRequestEntity?> = repository.observeRequest(id)
+
+    /** This phone's Bluetooth collection receipt for [id], if any. */
+    fun receipt(id: String): Flow<CollectionReceiptEntity?> = repository.observeReceipt(id)
 
     companion object {
         val Factory = viewModelFactory {

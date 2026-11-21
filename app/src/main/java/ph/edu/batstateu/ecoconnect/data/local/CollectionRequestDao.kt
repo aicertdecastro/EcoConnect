@@ -104,11 +104,30 @@ interface CollectionRequestDao {
      * Drops cached rows of OTHER users that the server no longer shows this collector
      * (e.g. taken by someone else). Never touches unsent rows.
      */
-    @Query("DELETE FROM collection_requests WHERE userId != :collectorId AND syncStatus != 'PENDING_SUBMISSION' AND id NOT IN (:keepIds)")
+    // Collected rows and rows with a receipt are kept: deleting the request would
+    // CASCADE-delete its receipt, possibly before the receipt was uploaded.
+    @Query(
+        """
+        DELETE FROM collection_requests
+        WHERE userId != :collectorId AND syncStatus NOT IN ('PENDING_SUBMISSION', 'COLLECTED')
+          AND id NOT IN (SELECT requestId FROM collection_receipts)
+          AND id NOT IN (:keepIds)
+        """,
+    )
     suspend fun deleteStaleCollectorRows(collectorId: String, keepIds: List<String>): Int
 
-    @Query("DELETE FROM collection_requests WHERE userId != :collectorId AND syncStatus != 'PENDING_SUBMISSION'")
+    @Query(
+        """
+        DELETE FROM collection_requests
+        WHERE userId != :collectorId AND syncStatus NOT IN ('PENDING_SUBMISSION', 'COLLECTED')
+          AND id NOT IN (SELECT requestId FROM collection_receipts)
+        """,
+    )
     suspend fun deleteAllCollectorRows(collectorId: String): Int
+
+    /** Only call in the same transaction as the receipt insert: never COLLECTED without a receipt. */
+    @Query("UPDATE collection_requests SET syncStatus = 'COLLECTED', updatedAt = :updatedAt WHERE id = :id")
+    suspend fun markCollected(id: String, updatedAt: Long): Int
 
     companion object {
         /** User id used before authentication was added. */

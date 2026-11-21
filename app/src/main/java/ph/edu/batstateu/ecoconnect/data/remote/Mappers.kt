@@ -107,10 +107,25 @@ sealed interface MergeAction {
 }
 
 /**
- * Decides how a server row affects the local copy. Local rows that are still
- * PENDING_SUBMISSION are never overwritten — they are uploaded first.
+ * A pickup confirmed over Bluetooth is COLLECTED locally before the server knows (it may be
+ * offline). Server rows must never move it back to ACCEPTED/RESCHEDULED.
  */
-fun mergeServerRequest(local: CollectionRequestEntity?, server: CollectionRequestEntity): MergeAction = when {
+fun keepLocalCollected(local: CollectionRequestEntity?, server: CollectionRequestEntity): CollectionRequestEntity =
+    if (local?.syncStatus == SyncStatus.COLLECTED && server.syncStatus != SyncStatus.COLLECTED) {
+        server.copy(syncStatus = SyncStatus.COLLECTED)
+    } else {
+        server
+    }
+
+/**
+ * Decides how a server row affects the local copy. Local rows that are still
+ * PENDING_SUBMISSION are never overwritten — they are uploaded first — and a local
+ * COLLECTED status is never downgraded.
+ */
+fun mergeServerRequest(local: CollectionRequestEntity?, server: CollectionRequestEntity): MergeAction =
+    mergeChecked(local, keepLocalCollected(local, server))
+
+private fun mergeChecked(local: CollectionRequestEntity?, server: CollectionRequestEntity): MergeAction = when {
     local == null -> MergeAction.Insert(server)
     local.syncStatus == SyncStatus.PENDING_SUBMISSION -> MergeAction.Skip
     local.syncStatus == server.syncStatus &&

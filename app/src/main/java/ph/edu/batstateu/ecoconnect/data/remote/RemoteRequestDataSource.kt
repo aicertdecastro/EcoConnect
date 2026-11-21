@@ -108,6 +108,25 @@ class RemoteRequestDataSource(private val client: SupabaseClient) : CollectorRem
         }
     }
 
+    /**
+     * Collector's receipt reached the server → mark the request COLLECTED. Only matches a
+     * request assigned to [collectorId] (RLS enforces the same). Idempotent.
+     */
+    suspend fun markCollected(requestId: String, collectorId: String): Result<Unit> = safeCall("markCollected $requestId") {
+        client.from(REQUESTS).update(
+            buildJsonObject {
+                put("status", SyncStatus.COLLECTED.name)
+                put("updated_at", formatServerTimestamp(System.currentTimeMillis()))
+            },
+        ) {
+            filter {
+                eq("id", requestId)
+                eq("collector_id", collectorId)
+            }
+        }
+        Unit
+    }
+
     private suspend fun <T> safeCall(what: String, block: suspend () -> T): Result<T> = try {
         Result.success(block())
     } catch (e: CancellationException) {

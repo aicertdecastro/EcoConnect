@@ -42,6 +42,7 @@ fun MyRequestsRoute(
 fun RequestDetailsRoute(
     requestId: String,
     onBack: () -> Unit,
+    onConfirmPickup: (requestId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RequestViewModel = viewModel(factory = RequestViewModel.Factory),
 ) {
@@ -49,11 +50,19 @@ fun RequestDetailsRoute(
     val state by produceState<LoadState>(LoadState.Loading, flow) {
         flow.collect { value = if (it == null) LoadState.Missing else LoadState.Loaded(it) }
     }
+    val receiptFlow = remember(requestId) { viewModel.receipt(requestId) }
+    val receipt by receiptFlow.collectAsStateWithLifecycle(initialValue = null)
 
     when (val s = state) {
         LoadState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         LoadState.Missing -> LaunchedEffect(Unit) { onBack() }
-        is LoadState.Loaded -> RequestDetailsScreen(request = s.request, onBack = onBack, modifier = modifier)
+        is LoadState.Loaded -> RequestDetailsScreen(
+            request = s.request,
+            receipt = receipt,
+            onConfirmPickup = { onConfirmPickup(requestId) },
+            onBack = onBack,
+            modifier = modifier,
+        )
     }
 }
 

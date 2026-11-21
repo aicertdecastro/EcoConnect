@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CollectionReceiptDao {
@@ -20,4 +21,11 @@ interface CollectionReceiptDao {
 
     @Query("UPDATE collection_receipts SET uploaded = 1 WHERE receiptId = :receiptId")
     suspend fun markUploaded(receiptId: String)
+
+    /** This phone's receipt for [requestId] (requestId is unique), or null. */
+    @Query("SELECT * FROM collection_receipts WHERE requestId = :requestId")
+    suspend fun getForRequest(requestId: String): CollectionReceiptEntity?
+
+    @Query("SELECT * FROM collection_receipts WHERE requestId = :requestId")
+    fun observeForRequest(requestId: String): Flow<CollectionReceiptEntity?>
 }

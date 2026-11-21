@@ -8,7 +8,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import ph.edu.batstateu.ecoconnect.bluetooth.BtRole
 import ph.edu.batstateu.ecoconnect.data.auth.AuthState
+import ph.edu.batstateu.ecoconnect.ui.bluetooth.BtConfirmRoute
 import ph.edu.batstateu.ecoconnect.ui.collector.CollectorHomeRoute
 import ph.edu.batstateu.ecoconnect.ui.collector.CollectorRequestDetailsRoute
 import ph.edu.batstateu.ecoconnect.ui.viewmodel.CollectorViewModel
@@ -18,6 +20,8 @@ object CollectorDestinations {
     const val ARG_REQUEST_ID = "requestId"
     const val REQUEST_PATTERN = "collector_request/{$ARG_REQUEST_ID}"
     fun request(id: String) = "collector_request/$id"
+    const val CONFIRM_PATTERN = "collector_confirm/{$ARG_REQUEST_ID}"
+    fun confirm(id: String) = "collector_confirm/$id"
 }
 
 /**
@@ -46,7 +50,18 @@ fun CollectorRoot(user: AuthState.SignedIn, onSignOut: () -> Unit, modifier: Mod
             CollectorRequestDetailsRoute(
                 requestId = entry.arguments?.getString(CollectorDestinations.ARG_REQUEST_ID).orEmpty(),
                 onBack = { navController.popBackStack() },
+                onConfirmPickup = { navController.navigate(CollectorDestinations.confirm(it)) { launchSingleTop = true } },
                 viewModel = viewModel,
+            )
+        }
+        composable(
+            CollectorDestinations.CONFIRM_PATTERN,
+            arguments = listOf(navArgument(CollectorDestinations.ARG_REQUEST_ID) { type = NavType.StringType }),
+        ) { entry ->
+            BtConfirmRoute(
+                role = BtRole.COLLECTOR,
+                requestId = entry.arguments?.getString(CollectorDestinations.ARG_REQUEST_ID).orEmpty(),
+                onClose = { navController.popBackStack() },
             )
         }
     }

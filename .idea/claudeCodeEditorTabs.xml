@@ -4,21 +4,18 @@
     <option name="activeSessionId" value="b4065a5a-a0b3-4d3b-8b7d-cff86da9e5c3" />
     <option name="openSessionIds">
       <list>
-        <option value="093d8e46-ad63-4749-b2e5-59d5c39ff78c" />
         <option value="27555b4b-ee03-4d47-93ac-bd16ec0f03ea" />
         <option value="b4065a5a-a0b3-4d3b-8b7d-cff86da9e5c3" />
       </list>
     </option>
     <option name="sessionPaths">
       <map>
-        <entry key="093d8e46-ad63-4749-b2e5-59d5c39ff78c" value="/sessions/b88ab5e9-c931-4ba4-ad25-60cb4f559fe4" />
         <entry key="27555b4b-ee03-4d47-93ac-bd16ec0f03ea" value="/sessions/4e9c40d9-eaca-4062-b3ca-b6a7b1cdaa69" />
         <entry key="b4065a5a-a0b3-4d3b-8b7d-cff86da9e5c3" value="/sessions/b88ab5e9-c931-4ba4-ad25-60cb4f559fe4" />
       </map>
     </option>
     <option name="sessionTitles">
       <map>
-        <entry key="093d8e46-ad63-4749-b2e5-59d5c39ff78c" value="collector-request-screens" />
         <entry key="27555b4b-ee03-4d47-93ac-bd16ec0f03ea" value="Live CameraX viewfinder" />
         <entry key="b4065a5a-a0b3-4d3b-8b7d-cff86da9e5c3" value="collector-request-screens" />
       </map>

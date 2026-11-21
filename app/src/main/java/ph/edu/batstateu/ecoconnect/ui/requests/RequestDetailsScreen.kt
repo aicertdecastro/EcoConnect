@@ -4,10 +4,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import ph.edu.batstateu.ecoconnect.data.local.CollectionReceiptEntity
+import ph.edu.batstateu.ecoconnect.ui.theme.PillShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -41,10 +50,33 @@ fun RequestDetailsScreen(
     request: CollectionRequestEntity,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    receipt: CollectionReceiptEntity? = null,
+    onConfirmPickup: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            if (canConfirmPickup(request, receipt)) {
+                Column(
+                    Modifier
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                ) {
+                    if (receipt == null) {
+                        Button(onClick = onConfirmPickup, shape = PillShape, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                            Icon(Icons.Outlined.Bluetooth, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text("Confirm pickup", modifier = Modifier.padding(start = 8.dp))
+                        }
+                    } else {
+                        // Already collected here: lets a retry fill a receipt missing on the collector's phone.
+                        TextButton(onClick = onConfirmPickup, modifier = Modifier.fillMaxWidth()) {
+                            Text("Collector's phone not updated? Confirm again")
+                        }
+                    }
+                }
+            }
+        },
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Request details") },
@@ -69,6 +101,8 @@ fun RequestDetailsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             SyncStatusChip(request.syncStatus, modifier = Modifier.padding(top = 8.dp))
+
+            receipt?.let { ReceiptSection(it) }
 
             Section("Pickup") {
                 Field("Date", formatPickupDate(request.pickupDate))
@@ -136,6 +170,20 @@ private fun Field(label: String, value: String) {
 private fun RequestDetailsSentPreview() {
     val sent = FakeData.requests[2].let { it.copy(sentAt = it.createdAt + 4_200) }
     EcoConnectTheme { RequestDetailsScreen(request = sent, onBack = {}) }
+}
+
+@Preview(showSystemUi = true, name = "Request details – accepted (confirm pickup)")
+@Composable
+private fun RequestDetailsAcceptedPreview() {
+    EcoConnectTheme { RequestDetailsScreen(request = FakeData.requests[3], onBack = {}) }
+}
+
+@Preview(showSystemUi = true, name = "Request details – collected")
+@Composable
+private fun RequestDetailsCollectedPreview() {
+    val r = FakeData.requests[3].copy(syncStatus = SyncStatus.COLLECTED)
+    val receipt = CollectionReceiptEntity("rc", r.id, r.userId, r.collectorId.orEmpty(), r.updatedAt, uploaded = false, durationMs = 2_340)
+    EcoConnectTheme { RequestDetailsScreen(request = r, receipt = receipt, onBack = {}) }
 }
 
 @Preview(showSystemUi = true, name = "Request details – pending")

@@ -26,4 +26,9 @@ data class CollectionReceiptEntity(
     val confirmedAt: Long,
     /** False until the receipt has been sent to the server. */
     val uploaded: Boolean = false,
+    /**
+     * Bluetooth confirmation time on THIS phone: socket connected → receipt saved (R3 metric).
+     * Null for receipts created another way.
+     */
+    val durationMs: Long? = null,
 )

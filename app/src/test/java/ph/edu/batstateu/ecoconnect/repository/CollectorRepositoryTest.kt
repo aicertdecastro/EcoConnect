@@ -26,7 +26,7 @@ import java.io.IOException
 private const val ME = "collector-1"
 
 /** In-memory DAO with just enough SQL semantics for the collector paths. */
-private class FakeRequestDao : CollectionRequestDao {
+internal class FakeRequestDao : CollectionRequestDao {
     val rows = MutableStateFlow<Map<String, CollectionRequestEntity>>(emptyMap())
     var writes = 0
 
@@ -76,9 +76,15 @@ private class FakeRequestDao : CollectionRequestDao {
         m.values.filter { it.collectorId == collectorId && it.syncStatus.name in statuses }
     }
     override suspend fun upsertAll(requests: List<CollectionRequestEntity>) = requests.forEach(::put)
+    override suspend fun markCollected(id: String, updatedAt: Long): Int {
+        val row = rows.value[id] ?: return 0
+        put(row.copy(syncStatus = SyncStatus.COLLECTED, updatedAt = updatedAt))
+        return 1
+    }
     override suspend fun deleteStaleCollectorRows(collectorId: String, keepIds: List<String>): Int {
         val drop = rows.value.values.filter {
-            it.userId != collectorId && it.syncStatus != SyncStatus.PENDING_SUBMISSION && it.id !in keepIds
+            it.userId != collectorId && it.syncStatus != SyncStatus.PENDING_SUBMISSION &&
+                it.syncStatus != SyncStatus.COLLECTED && it.id !in keepIds
         }
         if (drop.isNotEmpty()) writes++
         rows.value -= drop.map { it.id }.toSet()
@@ -174,6 +180,29 @@ class CollectorRepositoryTest {
     private suspend fun seed() {
         dao.upsertAll(listOf(request))
         dao.writes = 0
+    }
+
+    @Test
+    fun refreshNeverDowngradesLocallyCollectedRow() = runTest {
+        // Confirmed over Bluetooth offline; server still says ACCEPTED.
+        dao.upsertAll(listOf(request.copy(syncStatus = SyncStatus.COLLECTED, collectorId = ME)))
+        remote.serverRows = listOf(row("ACCEPTED", ME, collector = "Pedro"))
+
+        repo.refresh(ME)
+
+        val local = dao.rows.value.getValue(request.id)
+        assertEquals(SyncStatus.COLLECTED, local.syncStatus)
+        assertEquals("Pedro", local.collectorName) // other fields still update
+    }
+
+    @Test
+    fun refreshKeepsCollectedRowsTheServerNoLongerShows() = runTest {
+        dao.upsertAll(listOf(request.copy(syncStatus = SyncStatus.COLLECTED, collectorId = ME)))
+        remote.serverRows = emptyList()
+
+        repo.refresh(ME)
+
+        assertEquals(SyncStatus.COLLECTED, dao.rows.value[request.id]?.syncStatus)
     }
 
     @Test

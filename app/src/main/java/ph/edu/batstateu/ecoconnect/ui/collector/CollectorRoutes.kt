@@ -54,6 +54,7 @@ fun CollectorHomeRoute(
 fun CollectorRequestDetailsRoute(
     requestId: String,
     onBack: () -> Unit,
+    onConfirmPickup: (requestId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CollectorViewModel = viewModel(factory = CollectorViewModel.Factory),
 ) {
@@ -62,6 +63,8 @@ fun CollectorRequestDetailsRoute(
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     val responding by viewModel.responding.collectAsStateWithLifecycle()
     val guide by viewModel.guide.collectAsStateWithLifecycle()
+    val receiptFlow = remember(requestId) { viewModel.receipt(requestId) }
+    val receipt by receiptFlow.collectAsStateWithLifecycle(initialValue = null)
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
@@ -81,9 +84,10 @@ fun CollectorRequestDetailsRoute(
         responding = responding,
         isDateAllowed = { millis -> guide?.let { PickupSchedule.isProposalDateAllowed(millis, current.wasteItems, it) } ?: false },
         onRespond = { action -> viewModel.respond(current, action) },
-        onConfirmPickup = { viewModel.showMessage("Coming soon — Bluetooth confirmation is the next step.") },
+        onConfirmPickup = { onConfirmPickup(current.id) },
         onBack = onBack,
         snackbarHostState = snackbar,
+        receipt = receipt,
         modifier = modifier,
     )
 }

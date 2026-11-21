@@ -5,7 +5,6 @@ object EcoDestinations {
     const val HOME = "home"
     const val WASTE_GUIDE = "waste_guide"
     const val MY_REQUESTS = "my_requests"
-    const val BLUETOOTH_CONFIRM = "bluetooth_confirm"
     const val PROFILE = "profile"
 
     // Waste scanner (test screen for the Gemini integration)
@@ -28,6 +27,10 @@ object EcoDestinations {
     const val ARG_REQUEST_ID = "requestId"
     const val REQUEST_DETAILS_PATTERN = "request_details/{$ARG_REQUEST_ID}"
     fun requestDetails(requestId: String): String = "request_details/$requestId"
+
+    // Bluetooth pickup confirmation (resident side; the collector graph has its own route)
+    const val CONFIRM_PICKUP_PATTERN = "confirm_pickup/{$ARG_REQUEST_ID}"
+    fun confirmPickup(requestId: String): String = "confirm_pickup/$requestId"
 
     /** Routes that show the bottom navigation bar. */
     val topLevel = setOf(HOME, WASTE_GUIDE, MY_REQUESTS, PROFILE)

@@ -14,6 +14,7 @@ import ph.edu.batstateu.ecoconnect.data.local.SyncStatus
 import ph.edu.batstateu.ecoconnect.data.remote.CollectorRemote
 import ph.edu.batstateu.ecoconnect.data.remote.NetworkMonitor
 import ph.edu.batstateu.ecoconnect.data.remote.formatServerDate
+import ph.edu.batstateu.ecoconnect.data.remote.keepLocalCollected
 import ph.edu.batstateu.ecoconnect.data.remote.toEntity
 
 /** What a collector decides about a SENT request. */
@@ -81,7 +82,14 @@ class CollectorRepository(
         val rows = remote.fetchCollectorRequests(collectorId).getOrElse { return Result.failure(it) }
         val entities = rows.mapNotNull { dto ->
             try {
-                dto.toEntity()
+                val server = dto.toEntity()
+                val local = requestDao.getById(server.id)
+                when {
+                    // Never overwrite a row that is still waiting to be uploaded from this phone.
+                    local?.syncStatus == SyncStatus.PENDING_SUBMISSION -> null
+                    // Confirmed over Bluetooth but not uploaded yet: stay COLLECTED.
+                    else -> keepLocalCollected(local, server)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -89,8 +97,6 @@ class CollectorRepository(
                 null
             }
         }
-            // Never overwrite a row that is still waiting to be uploaded from this phone.
-            .filter { requestDao.getById(it.id)?.syncStatus != SyncStatus.PENDING_SUBMISSION }
         requestDao.upsertAll(entities)
         if (rows.isEmpty()) {
             requestDao.deleteAllCollectorRows(collectorId)

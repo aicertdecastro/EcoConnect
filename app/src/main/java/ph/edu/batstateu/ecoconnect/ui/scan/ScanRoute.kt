@@ -37,6 +37,9 @@ import ph.edu.batstateu.ecoconnect.ui.viewmodel.ScanViewModel
 @Composable
 fun ScanRoute(
     onBack: () -> Unit,
+    onRequestPickup: (categoryId: String) -> Unit,
+    onOpenGuide: (categoryId: String) -> Unit,
+    onStartQuiz: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ScanViewModel = viewModel(factory = ScanViewModel.Factory),
 ) {
@@ -132,6 +135,9 @@ fun ScanRoute(
             )
         },
         onBack = onBack,
+        onRequestPickup = onRequestPickup,
+        onOpenGuide = onOpenGuide,
+        onStartQuiz = onStartQuiz,
         modifier = modifier,
     )
 }

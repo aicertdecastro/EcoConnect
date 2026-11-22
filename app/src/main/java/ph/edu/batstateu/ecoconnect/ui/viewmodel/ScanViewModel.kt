@@ -16,8 +16,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ph.edu.batstateu.ecoconnect.EcoConnectApp
+import android.util.Log
+import kotlinx.coroutines.CancellationException
+import ph.edu.batstateu.ecoconnect.data.guide.WasteGuideRepository
 import ph.edu.batstateu.ecoconnect.data.remote.NetworkMonitor
+import ph.edu.batstateu.ecoconnect.data.scan.ScanGuidance
 import ph.edu.batstateu.ecoconnect.data.scan.ScanOutcome
+import ph.edu.batstateu.ecoconnect.data.scan.guidanceFor
 import ph.edu.batstateu.ecoconnect.data.scan.ScanRepository
 import ph.edu.batstateu.ecoconnect.data.scan.ScanResult
 import ph.edu.batstateu.ecoconnect.ui.scan.toJpeg
@@ -27,13 +32,20 @@ sealed interface ScanUiState {
     /** Live viewfinder, ready to capture. */
     data object Live : ScanUiState
     data class Analyzing(val photo: Bitmap) : ScanUiState
-    data class Done(val photo: Bitmap, val result: ScanResult, val roundTripMs: Long) : ScanUiState
+    /** [guidance] is the waste guide's advice for the result; null only if the guide couldn't be read. */
+    data class Done(
+        val photo: Bitmap,
+        val result: ScanResult,
+        val roundTripMs: Long,
+        val guidance: ScanGuidance? = null,
+    ) : ScanUiState
     data class Failed(val photo: Bitmap?, val message: String) : ScanUiState
 }
 
 class ScanViewModel(
     private val repository: ScanRepository,
     network: NetworkMonitor,
+    private val guideRepository: WasteGuideRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ScanUiState>(ScanUiState.Live)
@@ -51,11 +63,22 @@ class ScanViewModel(
         job = viewModelScope.launch {
             val jpeg = withContext(Dispatchers.Default) { photo.toJpeg() }
             _state.value = when (val outcome = repository.classify(jpeg)) {
-                is ScanOutcome.Success -> ScanUiState.Done(photo, outcome.result, outcome.roundTripMs)
+                is ScanOutcome.Success ->
+                    ScanUiState.Done(photo, outcome.result, outcome.roundTripMs, guidance(outcome.result))
                 ScanOutcome.Offline -> ScanUiState.Failed(photo, "You're offline. The scanner needs internet.")
                 is ScanOutcome.Error -> ScanUiState.Failed(photo, outcome.message)
             }
         }
+    }
+
+    /** The bundled guide is local, so this works offline; a broken asset only hides the advice. */
+    private suspend fun guidance(result: ScanResult): ScanGuidance? = try {
+        guidanceFor(result, guideRepository.guide())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w("ScanViewModel", "Waste guide unavailable: ${e.message}")
+        null
     }
 
     fun showError(message: String) {
@@ -72,7 +95,7 @@ class ScanViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as EcoConnectApp
-                ScanViewModel(app.scanRepository, app.networkMonitor)
+                ScanViewModel(app.scanRepository, app.networkMonitor, app.wasteGuideRepository)
             }
         }
     }

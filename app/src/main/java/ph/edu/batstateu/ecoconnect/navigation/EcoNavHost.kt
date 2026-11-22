@@ -112,7 +112,13 @@ fun EcoNavHost(
         }
 
         composable(EcoDestinations.SCAN) {
-            ScanRoute(onBack = { navController.popBackStack() })
+            ScanRoute(
+                onBack = { navController.popBackStack() },
+                // Scanner result → pickup form with the scanned category pre-selected.
+                onRequestPickup = openRequestPickup,
+                onOpenGuide = { navController.navigate(EcoDestinations.guideResult(it)) },
+                onStartQuiz = { navController.navigate(EcoDestinations.GUIDE_QUIZ) },
+            )
         }
 
         // ---- Waste guide ----

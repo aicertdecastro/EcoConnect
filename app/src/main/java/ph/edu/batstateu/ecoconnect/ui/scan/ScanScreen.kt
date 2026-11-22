@@ -69,7 +69,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.LocalShipping
+import androidx.compose.material.icons.outlined.Quiz
+import androidx.compose.material3.HorizontalDivider
+import ph.edu.batstateu.ecoconnect.data.scan.ScanGuidance
 import ph.edu.batstateu.ecoconnect.data.scan.ScanResult
+import ph.edu.batstateu.ecoconnect.data.scan.guidanceFor
+import ph.edu.batstateu.ecoconnect.ui.preview.FakeData
 import ph.edu.batstateu.ecoconnect.ui.components.UnsureStyle
 import ph.edu.batstateu.ecoconnect.ui.components.WasteCategory
 import ph.edu.batstateu.ecoconnect.ui.theme.EcoConnectTheme
@@ -105,6 +112,9 @@ fun ScanScreen(
     onOpenSettings: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onRequestPickup: (categoryId: String) -> Unit = {},
+    onOpenGuide: (categoryId: String) -> Unit = {},
+    onStartQuiz: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -152,6 +162,9 @@ fun ScanScreen(
                 onCapture = onCapture,
                 onPickFromGallery = onPickFromGallery,
                 onScanAgain = onScanAgain,
+                onRequestPickup = onRequestPickup,
+                onOpenGuide = onOpenGuide,
+                onStartQuiz = onStartQuiz,
             )
             Text(
                 "Test mode · Photos are sent to Google Gemini for analysis and are not stored.",
@@ -289,6 +302,9 @@ private fun BottomCard(
     onCapture: () -> Unit,
     onPickFromGallery: () -> Unit,
     onScanAgain: () -> Unit,
+    onRequestPickup: (categoryId: String) -> Unit,
+    onOpenGuide: (categoryId: String) -> Unit,
+    onStartQuiz: () -> Unit,
 ) {
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -308,6 +324,7 @@ private fun BottomCard(
                 }
                 is ScanUiState.Done -> {
                     ResultContent(state.result, state.roundTripMs)
+                    state.guidance?.let { GuidanceContent(it, onRequestPickup, onOpenGuide, onStartQuiz) }
                     ScanAgainButton(onScanAgain)
                 }
                 is ScanUiState.Failed -> {
@@ -427,6 +444,74 @@ private fun ResultContent(result: ScanResult, roundTripMs: Long) {
     )
 }
 
+/** The waste guide's advice for the scanned item, and where to go next. */
+@Composable
+private fun GuidanceContent(
+    guidance: ScanGuidance,
+    onRequestPickup: (categoryId: String) -> Unit,
+    onOpenGuide: (categoryId: String) -> Unit,
+    onStartQuiz: () -> Unit,
+) {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    when (guidance) {
+        is ScanGuidance.Known -> {
+            val category = guidance.category
+            Text("What to do", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            category.instructions.forEach { Bullet(it) }
+            val schedule = when {
+                !guidance.canRequestPickup ->
+                    category.scheduleNote ?: "Not collected door-to-door. Ask the barangay or City ENRO."
+                category.collectionDays.isNotEmpty() ->
+                    "Pickup days: " + category.collectionDays.joinToString { it.shortLabel }
+                else -> category.scheduleNote
+            }
+            schedule?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (guidance.canRequestPickup) MaterialTheme.colorScheme.onSurfaceVariant else StatusPending,
+                )
+            }
+            if (guidance.canRequestPickup) {
+                Button(
+                    onClick = { onRequestPickup(category.id) },
+                    shape = PillShape,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) {
+                    Icon(Icons.Outlined.LocalShipping, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Request ${category.name} pickup", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+            OutlinedButton(onClick = { onOpenGuide(category.id) }, shape = PillShape, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Full guide for ${category.name}", modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+        is ScanGuidance.Unsure -> {
+            Text(guidance.advice.title, style = MaterialTheme.typography.titleSmall, color = StatusPending)
+            guidance.advice.instructions.forEach { Bullet(it) }
+            Button(onClick = onStartQuiz, shape = PillShape, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Icon(Icons.Outlined.Quiz, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Answer the guide's questions", modifier = Modifier.padding(start = 8.dp))
+            }
+            guidance.guess?.let { guess ->
+                OutlinedButton(onClick = { onOpenGuide(guess.id) }, shape = PillShape, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Check the ${guess.name} guide", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Bullet(text: String) {
+    Row {
+        Text("•", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(16.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
 @Composable
 private fun ScanAgainButton(onClick: () -> Unit) {
     OutlinedButton(onClick = onClick, shape = PillShape, modifier = Modifier.fillMaxWidth().height(48.dp)) {
@@ -471,14 +556,23 @@ private fun PreviewScan(state: ScanUiState, cameraStatus: CameraStatus = CameraS
 @Composable
 private fun ScanLivePreview() = PreviewScan(ScanUiState.Live)
 
-@Preview(showSystemUi = true, name = "Scan – result")
+private fun done(result: ScanResult) =
+    ScanUiState.Done(previewPhoto, result, 2_050, guidanceFor(result, FakeData.guide))
+
+@Preview(showSystemUi = true, name = "Scan – result (pickup)")
 @Composable
-private fun ScanResultPreview() = PreviewScan(ScanUiState.Done(previewPhoto, previewResult, 2_050))
+private fun ScanResultPreview() = PreviewScan(done(previewResult))
+
+@Preview(showSystemUi = true, name = "Scan – special (no pickup)")
+@Composable
+private fun ScanSpecialPreview() = PreviewScan(
+    done(previewResult.copy(category = WasteCategory.SPECIAL, itemName = "AA battery", rawCategory = "SPECIAL", reason = "Batteries contain chemicals.")),
+)
 
 @Preview(showSystemUi = true, name = "Scan – unsure")
 @Composable
 private fun ScanUnsurePreview() = PreviewScan(
-    ScanUiState.Done(previewPhoto, previewResult.copy(category = null, itemName = "Mixed items", confidence = 0.31), 1_900),
+    done(previewResult.copy(category = null, itemName = "Mixed items", confidence = 0.31)),
 )
 
 @Preview(showSystemUi = true, name = "Scan – analyzing")

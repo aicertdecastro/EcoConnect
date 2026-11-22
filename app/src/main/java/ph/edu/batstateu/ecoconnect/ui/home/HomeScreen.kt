@@ -66,7 +66,7 @@ enum class HomeTile(val label: String, val icon: ImageVector, val accent: Color)
     RequestPickup("Request Pickup", Icons.Outlined.LocalShipping, TileAmber),
     MyRequests("My Requests", Icons.AutoMirrored.Outlined.ListAlt, TileBlue),
     BluetoothConfirm("Bluetooth Confirm", Icons.Outlined.Bluetooth, TileTeal),
-    ScanWaste("Scan Waste (test)", Icons.Outlined.CenterFocusWeak, EcoGreen100),
+    ScanWaste("Scan Waste", Icons.Outlined.CenterFocusWeak, EcoGreen100),
 }
 
 @Composable

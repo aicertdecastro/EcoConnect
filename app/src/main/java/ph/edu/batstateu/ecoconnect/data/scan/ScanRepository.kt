@@ -70,7 +70,7 @@ class ScanRepository(
             Log.w(TAG, "classify: unreadable response")
             ScanOutcome.Error("The scanner's answer could not be read. Try again.")
         } catch (e: HttpRequestException) {
-            Log.w(TAG, "classify: network error ${e.javaClass.simpleName}")
+            Log.w(TAG, "classify: network error after ${clock() - started} ms: ${e.cause?.javaClass?.simpleName} ${e.cause?.message}")
             ScanOutcome.Error("Couldn't reach the scanner. Check your connection and try again.")
         } catch (e: Exception) {
             Log.w(TAG, "classify: ${e.javaClass.simpleName}")

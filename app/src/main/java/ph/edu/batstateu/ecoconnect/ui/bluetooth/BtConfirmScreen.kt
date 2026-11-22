@@ -300,7 +300,7 @@ private fun CollectorWaitingContent(state: BtConfirmUiState.CollectorWaiting, no
 private fun PickDeviceContent(state: BtConfirmUiState.PickDevice, actions: BtConfirmActions) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "Ask the collector to open this pickup and tap \"Confirm pickup (Bluetooth)\". Then choose their phone:",
+            "Ask the collector to open this pickup and tap \"Confirm pickup\" (with no internet it opens Bluetooth). Then choose their phone:",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

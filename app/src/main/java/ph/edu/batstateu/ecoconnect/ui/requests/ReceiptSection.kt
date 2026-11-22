@@ -31,7 +31,10 @@ import ph.edu.batstateu.ecoconnect.ui.theme.StatusPending
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-/** Bluetooth confirmation may start (or be repeated to fill a missing receipt on the other phone). */
+/** Confirmed over the internet (Bluetooth receipts always record how long they took). */
+val CollectionReceiptEntity.confirmedOnline: Boolean get() = durationMs == null
+
+/** Confirmation may start (or be repeated to fill a missing receipt on the other phone). */
 fun canConfirmPickup(request: CollectionRequestEntity, receipt: CollectionReceiptEntity?): Boolean =
     request.syncStatus == SyncStatus.ACCEPTED || request.syncStatus == SyncStatus.RESCHEDULED ||
         (request.syncStatus == SyncStatus.COLLECTED && receipt != null)
@@ -56,7 +59,7 @@ fun ReceiptSection(receipt: CollectionReceiptEntity, modifier: Modifier = Modifi
             }
             Text(
                 "Reference ${referenceCode(receipt.requestId)}" +
-                    (receipt.durationMs?.let { " · confirmed in ${String.format(Locale.US, "%.1f", it / 1000.0)} s" } ?: ""),
+                    (receipt.durationMs?.let { " · Bluetooth, ${String.format(Locale.US, "%.1f", it / 1000.0)} s" } ?: " · confirmed online"),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {

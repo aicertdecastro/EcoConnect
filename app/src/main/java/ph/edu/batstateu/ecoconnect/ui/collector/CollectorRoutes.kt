@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ph.edu.batstateu.ecoconnect.data.auth.AuthState
 import ph.edu.batstateu.ecoconnect.data.guide.PickupSchedule
 import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
+import ph.edu.batstateu.ecoconnect.ui.confirm.rememberConfirmPickup
 import ph.edu.batstateu.ecoconnect.ui.viewmodel.CollectorViewModel
 
 @Composable
@@ -67,6 +68,8 @@ fun CollectorRequestDetailsRoute(
     val receipt by receiptFlow.collectAsStateWithLifecycle(initialValue = null)
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
+    // Online when there is internet; Bluetooth screen otherwise.
+    val confirmPickup = rememberConfirmPickup(requestId, onOpenBluetooth = { onConfirmPickup(requestId) })
 
     // Once shown, a request that disappears (another collector took it) closes the screen.
     var wasLoaded by rememberSaveable { mutableStateOf(false) }
@@ -84,7 +87,8 @@ fun CollectorRequestDetailsRoute(
         responding = responding,
         isDateAllowed = { millis -> guide?.let { PickupSchedule.isProposalDateAllowed(millis, current.wasteItems, it) } ?: false },
         onRespond = { action -> viewModel.respond(current, action) },
-        onConfirmPickup = { onConfirmPickup(current.id) },
+        onConfirmPickup = confirmPickup,
+        onConfirmAgainWithBluetooth = { onConfirmPickup(current.id) },
         onBack = onBack,
         snackbarHostState = snackbar,
         receipt = receipt,

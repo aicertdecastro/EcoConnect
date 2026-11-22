@@ -18,7 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CloudOff
@@ -64,6 +64,7 @@ import ph.edu.batstateu.ecoconnect.ui.pickup.PickupDatePickerDialog
 import ph.edu.batstateu.ecoconnect.ui.preview.FakeData
 import ph.edu.batstateu.ecoconnect.ui.requests.ReceiptSection
 import ph.edu.batstateu.ecoconnect.ui.requests.canConfirmPickup
+import ph.edu.batstateu.ecoconnect.ui.requests.confirmedOnline
 import ph.edu.batstateu.ecoconnect.ui.requests.categoryLabel
 import ph.edu.batstateu.ecoconnect.ui.requests.formatKg
 import ph.edu.batstateu.ecoconnect.ui.requests.formatMoment
@@ -79,7 +80,7 @@ private enum class ActionDialog { None, Accept, Decline, ProposeDate, ProposeMes
 
 /**
  * Full request details for collectors. New (SENT, unassigned) requests get
- * Accept / Decline / Propose date; accepted or rescheduled ones get Bluetooth confirmation.
+ * Accept / Decline / Propose date; accepted or rescheduled ones get pickup confirmation (online, or Bluetooth offline).
  * [isDateAllowed] limits proposed dates to the request's collection days.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,6 +96,8 @@ fun CollectorRequestDetailsScreen(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     receipt: CollectionReceiptEntity? = null,
+    /** Bluetooth only: repeats a Bluetooth confirmation to update the other phone. */
+    onConfirmAgainWithBluetooth: () -> Unit = {},
 ) {
     var dialog by rememberSaveable { mutableStateOf(ActionDialog.None) }
     var proposedDate by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -138,11 +141,11 @@ fun CollectorRequestDetailsScreen(
                             .fillMaxWidth()
                             .height(52.dp),
                     ) {
-                        Icon(Icons.Outlined.Bluetooth, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Confirm pickup (Bluetooth)", modifier = Modifier.padding(start = 8.dp))
+                        Icon(Icons.Outlined.TaskAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("Confirm pickup", modifier = Modifier.padding(start = 8.dp))
                     }
                     // Already collected here: lets a retry fill a receipt missing on the resident's phone.
-                    canConfirmPickup(request, receipt) -> TextButton(onClick = onConfirmPickup, modifier = Modifier.fillMaxWidth()) {
+                    canConfirmPickup(request, receipt) && receipt?.confirmedOnline != true -> TextButton(onClick = onConfirmAgainWithBluetooth, modifier = Modifier.fillMaxWidth()) {
                         Text("Resident's phone not updated? Confirm again")
                     }
                 }

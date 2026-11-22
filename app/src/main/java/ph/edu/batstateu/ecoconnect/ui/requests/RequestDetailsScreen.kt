@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
 import ph.edu.batstateu.ecoconnect.data.local.CollectionReceiptEntity
@@ -52,12 +52,14 @@ fun RequestDetailsScreen(
     modifier: Modifier = Modifier,
     receipt: CollectionReceiptEntity? = null,
     onConfirmPickup: () -> Unit = {},
+    /** Bluetooth only: repeats a Bluetooth confirmation to update the other phone. */
+    onConfirmAgainWithBluetooth: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (canConfirmPickup(request, receipt)) {
+            if (canConfirmPickup(request, receipt) && receipt?.confirmedOnline != true) {
                 Column(
                     Modifier
                         .windowInsetsPadding(WindowInsets.navigationBars)
@@ -65,12 +67,12 @@ fun RequestDetailsScreen(
                 ) {
                     if (receipt == null) {
                         Button(onClick = onConfirmPickup, shape = PillShape, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                            Icon(Icons.Outlined.Bluetooth, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Outlined.TaskAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                             Text("Confirm pickup", modifier = Modifier.padding(start = 8.dp))
                         }
                     } else {
                         // Already collected here: lets a retry fill a receipt missing on the collector's phone.
-                        TextButton(onClick = onConfirmPickup, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = onConfirmAgainWithBluetooth, modifier = Modifier.fillMaxWidth()) {
                             Text("Collector's phone not updated? Confirm again")
                         }
                     }

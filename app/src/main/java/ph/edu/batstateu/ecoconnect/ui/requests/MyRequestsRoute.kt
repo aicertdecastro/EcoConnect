@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ph.edu.batstateu.ecoconnect.data.local.CollectionRequestEntity
+import ph.edu.batstateu.ecoconnect.ui.confirm.rememberConfirmPickup
 import ph.edu.batstateu.ecoconnect.ui.viewmodel.RequestViewModel
 
 @Composable
@@ -52,6 +53,8 @@ fun RequestDetailsRoute(
     }
     val receiptFlow = remember(requestId) { viewModel.receipt(requestId) }
     val receipt by receiptFlow.collectAsStateWithLifecycle(initialValue = null)
+    // Online when there is internet; Bluetooth screen otherwise.
+    val confirmPickup = rememberConfirmPickup(requestId, onOpenBluetooth = { onConfirmPickup(requestId) })
 
     when (val s = state) {
         LoadState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -59,7 +62,8 @@ fun RequestDetailsRoute(
         is LoadState.Loaded -> RequestDetailsScreen(
             request = s.request,
             receipt = receipt,
-            onConfirmPickup = { onConfirmPickup(requestId) },
+            onConfirmPickup = confirmPickup,
+            onConfirmAgainWithBluetooth = { onConfirmPickup(requestId) },
             onBack = onBack,
             modifier = modifier,
         )

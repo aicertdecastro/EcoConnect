@@ -105,13 +105,19 @@ class EcoConnectApp : Application(), SyncBackendProvider {
         )
     }
 
-    // Bluetooth pickup confirmation: receipt + COLLECTED in one Room transaction, then sync.
+    // Pickup confirmation: online when there's internet, otherwise Bluetooth (receipt + COLLECTED
+    // in one Room transaction, uploaded later).
     val confirmationRepository: ConfirmationRepository by lazy {
         ConfirmationRepository(
             requestDao = database.collectionRequestDao(),
             receiptDao = database.collectionReceiptDao(),
             inTransaction = { block -> database.withTransaction { block() } },
             requestSync = { syncScheduler.enqueueSync() },
+            uploader = { dto, markCollected ->
+                remoteRequestDataSource.pushReceipt(dto).mapCatching {
+                    if (markCollected) remoteRequestDataSource.markCollected(dto.requestId, dto.collectorId).getOrThrow()
+                }
+            },
         )
     }
 

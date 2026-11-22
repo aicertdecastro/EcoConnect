@@ -85,7 +85,7 @@ fun EcoNavHost(
                     when (tile) {
                         HomeTile.RequestPickup -> openRequestPickup(null)
                         // Confirmation starts from an accepted request, so open the list.
-                        HomeTile.BluetoothConfirm -> navController.navigateTopLevel(EcoDestinations.MY_REQUESTS)
+                        HomeTile.ConfirmPickup -> navController.navigateTopLevel(EcoDestinations.MY_REQUESTS)
                         HomeTile.WasteGuide -> navController.navigateTopLevel(EcoDestinations.WASTE_GUIDE)
                         HomeTile.MyRequests -> navController.navigateTopLevel(EcoDestinations.MY_REQUESTS)
                         HomeTile.ScanWaste -> navController.navigate(EcoDestinations.SCAN)

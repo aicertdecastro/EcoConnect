@@ -21,7 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ListAlt
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.CenterFocusWeak
 import androidx.compose.material.icons.outlined.Eco
 import androidx.compose.material.icons.outlined.LocalShipping
@@ -65,7 +65,7 @@ enum class HomeTile(val label: String, val icon: ImageVector, val accent: Color)
     WasteGuide("Waste Guide", Icons.AutoMirrored.Outlined.MenuBook, EcoGreen100),
     RequestPickup("Request Pickup", Icons.Outlined.LocalShipping, TileAmber),
     MyRequests("My Requests", Icons.AutoMirrored.Outlined.ListAlt, TileBlue),
-    BluetoothConfirm("Bluetooth Confirm", Icons.Outlined.Bluetooth, TileTeal),
+    ConfirmPickup("Confirm Pickup", Icons.Outlined.TaskAlt, TileTeal),
     ScanWaste("Scan Waste", Icons.Outlined.CenterFocusWeak, EcoGreen100),
 }
 
